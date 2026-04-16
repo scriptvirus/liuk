@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>法务助手 - 智能编号工具 | 合同条款参考</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #d8f0e6;  /* 浅绿色基调 */
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            padding: 24px 20px;
+            min-height: 100vh;
+        }
+
+        /* 主容器：左右两栏布局 */
+        .app-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            background: transparent;
+        }
+
+        /* 左侧区域 (上下框) */
+        .left-panel {
+            flex: 1.2;
+            min-width: 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* 上下两个框共用卡片样式 */
+        .card-box {
+            background: #ffffffea;
+            backdrop-filter: blur(0px);
+            border-radius: 28px;
+            box-shadow: 0 12px 28px rgba(0, 32, 16, 0.12);
+            overflow: hidden;
+            transition: all 0.2s;
+            border: 1px solid #bfe3d4;
+        }
+
+        .card-header {
+            background: #e2f4ed;
+            padding: 14px 20px;
+            font-weight: 600;
+            font-size: 1rem;
+            color: #1a5d4c;
+            border-bottom: 1px solid #c8e2d8;
+            letter-spacing: 0.3px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .card-header h3 {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: #116b54;
+        }
+
+        .copy-btn {
+            background: #2c8b6e;
+            border: none;
+            color: white;
+            font-size: 0.75rem;
+            padding: 5px 12px;
+            border-radius: 40px;
+            cursor: pointer;
+            transition: 0.2s;
+            font-weight: 500;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .copy-btn:hover {
+            background: #1f6e56;
+            transform: scale(0.96);
+        }
+
+        textarea, .preview-area {
+            width: 100%;
+            border: none;
+            padding: 20px;
+            font-size: 0.95rem;
+            line-height: 1.55;
+            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace, 'Segoe UI';
+            background: #fefef9;
+            resize: vertical;
+            outline: none;
+            color: #1e2a2a;
+        }
+
+        textarea {
+            min-height: 220px;
+            border-bottom: 1px solid #e0f0e8;
+            font-family: inherit;
+        }
+
+        .preview-area {
+            min-height: 280px;
+            background: #fafefb;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-y: auto;
+            border-top: 1px solid #d8ecE2;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #1f3d34;
+        }
+
+        .info-note {
+            background: #eef8f3;
+            padding: 8px 16px;
+            font-size: 0.7rem;
+            color: #3a7b67;
+            border-top: 1px solid #d4e9e0;
+            display: flex;
+            gap: 16px;
+        }
+
+        /* 右侧参考区 */
+        .right-panel {
+            flex: 1.4;
+            min-width: 360px;
+            background: #f2faf6;
+            border-radius: 28px;
+            box-shadow: 0 12px 28px rgba(0, 32, 16, 0.08);
+            padding: 18px 0 24px 0;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #cbe5db;
+            height: calc(100vh - 48px);
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .right-header {
+            padding: 0 20px 12px 20px;
+            border-bottom: 2px solid #c2dfd2;
+            margin-bottom: 8px;
+        }
+
+        .right-header h2 {
+            font-size: 1.4rem;
+            color: #0f5d48;
+            font-weight: 600;
+            letter-spacing: -0.3px;
+        }
+
+        .right-header p {
+            font-size: 0.75rem;
+            color: #558b79;
+            margin-top: 4px;
+        }
+
+        /* 折叠列表样式 */
+        .ref-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 0 16px 16px 16px;
+        }
+
+        .ref-item {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            transition: 0.1s;
+            border: 1px solid #d9ecE3;
+        }
+
+        .ref-title {
+            background: #f0f9f4;
+            padding: 14px 20px;
+            font-weight: 700;
+            font-size: 1rem;
+            color: #1f6e58;
+            cursor: pointer;
+            border-radius: 20px;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            user-select: none;
+        }
+
+        .ref-title:hover {
+            background: #e2f0e9;
+            padding-left: 24px;
+        }
+
+        .ref-title .arrow {
+            font-size: 1.1rem;
+            transition: transform 0.2s;
+            display: inline-block;
+            width: 22px;
+            color: #3b8b72;
+        }
+
+        .ref-title .title-text {
+            flex: 1;
+        }
+
+        .ref-content {
+            display: none;
+            padding: 16px 20px 20px 20px;
+            border-top: 1px solid #e2f0ea;
+            background: #ffffff;
+            border-radius: 0 0 20px 20px;
+            font-size: 0.85rem;
+            line-height: 1.55;
+            color: #2c4a3e;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: system-ui, 'Segoe UI', monospace;
+        }
+
+        .ref-content.show {
+            display: block;
+        }
+
+        /* 内部文本样式保留列表/加粗 */
+        .ref-content p, .ref-content li {
+            margin-bottom: 6px;
+        }
+
+        .ref-content ul, .ref-content ol {
+            padding-left: 1.5rem;
+            margin: 6px 0;
+        }
+
+        .ref-content strong {
+            color: #146b53;
+        }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #ddece5;
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #98bfae;
+            border-radius: 8px;
+        }
+
+        @media (max-width: 780px) {
+            body {
+                padding: 16px;
+            }
+            .app-container {
+                flex-direction: column;
+            }
+            .right-panel {
+                max-height: 70vh;
+            }
+        }
+
+        button {
+            background: none;
+            border: none;
+        }
+        .copy-badge {
+            background: #e0f0e8;
+            padding: 4px 12px;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            color: #236b56;
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <!-- 左侧：上下框区域 -->
+    <div class="left-panel">
+        <!-- 上框：原始文本输入区 -->
+        <div class="card-box">
+            <div class="card-header">
+                <h3>✍️ 粘贴 / 输入文字</h3>
+                <span class="copy-badge">自动按段落编号</span>
+            </div>
+            <textarea id="inputText" placeholder="在此处粘贴合同段落、审批意见或任何文字...&#10;每按一次回车换行即视为独立段落，自动生成 1. 2. 3. ... 编号。&#10;示例：&#10;请注意履约&#10;请更正我司法定代表人信息&#10;建议约定原告方所在地"></textarea>
+            <div class="info-note">
+                <span>📌 按换行分割段落，自动过滤空行</span>
+            </div>
+        </div>
+
+        <!-- 下框：自动编号结果展示 + 复制 -->
+        <div class="card-box">
+            <div class="card-header">
+                <h3>🔢 自动编号结果</h3>
+                <button id="copyResultBtn" class="copy-btn">📋 复制整段纯文本</button>
+            </div>
+            <div id="numberedPreview" class="preview-area">
+                <!-- 动态显示编号后的内容 -->
+                等待输入...
+            </div>
+            <div class="info-note">
+                <span>✅ 支持整段复制为无格式文本（仅保留编号与内容）</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧：参考文本区域（三级标题折叠） -->
+    <div class="right-panel">
+        <div class="right-header">
+            <h2>📚 常用条款库</h2>
+            <p>点击下方标题展开完整参考文本 | 合同&诉讼常用表述</p>
+        </div>
+        <div class="ref-list" id="refListContainer">
+            <!-- 动态生成折叠块：三级标题结构 (标题 + 完整内容) -->
+        </div>
+    </div>
+</div>
+
+<script>
+    // --------------------------------------------------------------
+    // 构建右侧完整参考数据 (根据附件内容精确整理)
+    // 每个条目视为一个“三级标题”，点击展开显示全部相关文字
+    // --------------------------------------------------------------
+    const referenceData = [
+        {
+            title: "📄 1. 审批常用文字",
+            content: `【程序性文字】\n请注意履约\n请更正我司法定代表人信息，注意履约\n客户模板，争议解决地对我方不利，注意履约\n我司联系地址填写北京办公地址\n北京市丰台区南四环西路188号18区26号楼北京长虹科技大厦\n【争议解决】\n争议解决方式建议约定为诉讼方式，争议解决地建议约定为原告方所在地，并明确诉讼相关费用由败诉方承担\n争议解决地对我方不利，建议约定为原告方所在地，并明确诉讼相关费用由败诉方承担\n【验收】建议付款不与验收挂钩，请注意付款方式中验收条件我司能否满足，注意及时获取验收报告\n建议明确最长验收时限，超过前述时限甲方未提出书面异议视为验收合格\n【违约责任】\n违约责任不对等，我司违约责任较重；\n日违约金比例过高，建议约定在违约行为涉及款项总额的万分之三至千分之一区间内；\n建议明确我司仅对因我司过错对甲方造成的直接经济损失承担赔偿责任；\n建议完善甲方逾期付款、逾期收货、中途退货等违约责任条款；\n甲方逾期履约达30日我司有权解除合同；\n【不常用部分】\n建议明确税率、税额，以及如合同履行中遇国家政策调整导致税率变化的处理\n建议合同自双方加盖公章或合同专用章之日起生效，如无法修改，注意签字并审查对方落款处签字\n根据公司管理规定，需明确税额并保留两位小数\n《中华人民共和国合同法》已失效，请修改为《中华人民共和国民法典》\n未见招投标文件，注意合同实质性内容需与招标文件一致\n根据最高人民法院《关于大型企业与中小企业约定以第三方支付款项为付款前提条款效力问题的批复》内容，大型企业与中小企业之间约定以第三方支付款项作为付款前提的条款（即"背靠背"条款）无效，请知悉`
+        },
+        {
+            title: "⚖️ 2. 参考条款 · 违约责任",
+            content: `【甲方逾期付款】\n如甲方逾期付款，每逾期一日应按未付清款项总额的千分之一向乙方支付违约金，直至付清为止。如甲方逾期付款达30日，乙方有权单方解除本合同、收回全部货物并要求甲方赔偿实际损失。\n\n【我司作为买方无责中止付款】\n若在付款前买方或买方指定客户发现服务有任何不符合合同要求的，买方有权中止付款，直至问题解决后重新付款，买方不承担逾期付款责任。如因乙方供货时效、产品质量、服务履行等问题，导致的甲方对最终用户的违约责任，由乙方全部承担，相关违约金应在最终用户出具经盖章的扣款证明材料后，30自然日内由乙方汇入甲方指定账户。本条如与前述违约情形重复，以违约金金额较高的方案执行。\n\n【甲方逾期履约】\n甲方逾期履约的（包括但不限于逾期付款、逾期提货或收货等），每日须按违约行为所涉及货物总价款的万分之五向乙方支付违约金，逾期30天仍未完全履约的，甲方应向乙方支付合同总额30%的违约金，同时乙方保留解除本合同的权利。\n\n【直接损失】\n无论本协议中的条款是否有相反规定，无论在任何情况或根据任何理论，供方对于任何偶然、附带、间接、特别或任何种类的惩罚性赔偿或收入、利润、预期储蓄和金钱或产品使用的损失、业务损失、数据丢失或由于或关于产品销售、安装、使用、性能、故障或中断、技术故障或对于逻辑安全的违反而产生的其他经济损失均不负任何责任，无论这种责任是基于合同、侵权（包括过失或严格责任）或是其他（即使供方被通知关于该损失或损害的可能性）。无论本协议中是否有其他规定，供方在本协议下的最大损害赔偿责任（无论是由于任何违约、过失或供方的任何作为或不作为或其他）不得超过所涉被索赔合同设备的购买价。`
+        },
+        {
+            title: "🏛️ 3. 参考条款 · 争议解决",
+            content: `出现合同纠纷，双方友好协商解决。如若协商或调解不成，由原告方本合同首页所在地有管辖权的人民法院裁决。\n双方同意民事诉讼可以通过信息网络平台在线进行。争议金额在原告方所在地上年度就业人员年平均工资二倍以下的，双方同意可以适用小额诉讼的程序。败诉方应承担胜诉方支付的诉讼费、律师费、公证费、财产保全费、调查取证费、保全责任保险（保函）费、财产保全和强制执行的差旅费等费用。`
+        },
+        {
+            title: "📑 4. 参考条款 · 其他 (续签/税率/交付/退货等)",
+            content: `【协议续签】\n协议期满后，如甲乙双方均有意继续合作，应签订补充协议以延长本协议的有效期限或签署新协议。\n\n【税率变化】\n甲方知悉国家会随时调整与合同相关的各项税率或因法律法规变化导致合同标的物税费的调整，若遇国家政策变化对税率进行调整，乙方将按开票时点增值税税率直接开具发票，本合同不含税价格不变，税费按国家调整后的税率执行，双方据此签署变更协议相应调整含税总价。\n\n【独立主体】\n卖方及卖方人员：卖方是独立的立约方，本协议不在买方和卖方之间或者买方与卖方人员之间确立代理关系。买方不对卖方人员承担任何责任和义务。卖方应：（1）确保卖方及其人员遵守所有的法律、法规、法令及许可证规定；（2）负责卖方人员的监督、控制、薪酬、代扣税金、健康和安全；（3）确保卖方人员在买方场所进行服务时遵守买方的有关规定；（4）如果买方离职雇员被卖方分派从事本协议规定的工作，须事先通知买方并得到买方的同意。\n\n【货物包装】\n所有货物应具有适于运输的坚固包装，并且乙方应根据货物的不同特性和要求采取防潮、防雨、防锈、防震、防腐等保护措施，以确保货物安全无损地送达交货地点。乙方应根据货物的不同特性和装卸运输上的不同要求，在包装箱相对的二个侧面上用中文标记"勿倒置"、"小心轻放"、"防潮"等标志和"重心"等装卸搬运时适用的通用图案，以利于装卸和搬运。\n\n【权限限制】\n甲方任何员工以个人或公司名义通过口头、邮件、微信、短信等任何形式，向乙方承诺给予奖励或折扣、延长交货期限、给予补偿等影响甲方利益的行为，均非甲方授权或认可的行为，前述涉及的任何承诺均需以双方盖章的书面补充协议约定为准。\n\n【联系人变更】\n任何一方的地址或联系人发生变更时，须在变更前7日以书面形式通知对方。因迟延通知而造成的损失，由过错方承担责任。\n\n【成果交付】\n无论本合同因何种情形终止或解除，乙方应向甲方交付本项目全部已开发完成的成果（包括但不限于源代码、设计文档、数据库脚本、测试报告、用户手册等所有相关资料及实体成果），甲方对该等成果享有完整的所有权及使用权。乙方交付已开发成果时，应确保成果的可用性及安全性，不得存在任何权利瑕疵（包括但不限于侵犯第三方知识产权）或功能缺陷导致甲方无法正常使用；若因成果存在问题导致甲方遭受损失的，乙方应承担全部赔偿责任。本合同项下已完成开发成果相关的新产生部分的知识产权归属甲方所有。\n\n【未中标退货】\n11.买方需在约定日期按时收货/提货，同时双方确认，出现以下情形之一，且买方已提供充分证明材料时，买方可向卖方提出退款或终止协议：(1)目标项目未中标：买方需提供招标方出具的《未中标通知书》或公开招标结果公示文件；(2)中标后合同终止或解除：买方需提供买方与最终用户签订的《项目合同》及《终止/解除协议》，并需明确终止/解除原因非买方过错；(3)目标项目无法履行：买方需提供最终用户出具的《项目无法履行说明》，载明具体原因，且需明确非因买方违约或过错导致。除前述情形外，买方不得主张退款或要求终止该协议的履行。若因买方自身过错（如未按要求提交投标材料、未履行与最终用户的合同义务）导致目标项目问题，买方无权要求退款，且需按本合同约定承担违约责任并赔偿因此对卖方造成的实际损失。\n12.若符合本条第11款约定的退款情形或经双方协商一致，买方应向卖方指发送书面通知并附相应证明材料，明确退款理由、退货货物信息；卖方在收到通知及完整证明材料后5个工作日内进行审核，审核通过后双方协商退款及退货（如有）事宜。\n13.退款范围及方式：(1)若货物尚未生产/备货：卖方在审核通过后10个工作日内，向买方全额退还已支付的预付款/货款（不含利息）；(2)若货物已生产/备货但未交付：卖方有权扣除已产生的合理成本（包括但不限于定制加工费、仓储费、对上游支付的违约金等）后，向买方退还剩余款项；若货物为定制化产品，卖方有权按本合同总金额的30%扣除定制成本损失，剩余款项退还买方；(3)若货物已交付：买方需在通知中明确退货计划，退货货物需保持原包装、未使用、无损坏（以卖方验收标准为准）；退货产生的物流费、运输损耗费由买方承担；卖方在验收合格退货后10个工作日内，按本款第(2)项约定退还相应款项。(4)买方未提供充分证明材料、或未在约定时间内配合完成退货的，卖方有权拒绝退款，且不承担任何责任；若买方无正当理由拖延或拒绝提货，视为买方违约，需按本合同约定承担逾期提货的违约责任。\n\n【我司无责退货】\n1.有如下情况之一，卖方承诺退货：（1）残次品、质量问题产品的退货；（2）买方库存过剩或滞销（指买方从卖方购进的入库后90天以上仍未销售出去的产品）退货；（3）买方业务调整或买方客户需求变更。\n2.买方已经支付款项的退货，卖方同意于【】日内开具销项负数发票并向买方退回相应货款；买方未支付货款的退货，卖方开具销项负数发票后，买方向卖方支付扣除退货款后的金额。\n\n【我司名义】\n乙方承诺就该项目仅以甲方名义向最终用户提供服务，如因乙方未能按约定以非甲方身份提供服务导致甲方被最终用户追责的，乙方需承担甲方所有损失及赔偿责任。\n\n【授权邮箱】\n甲方授权以下电子邮箱作为本合同项下所有书面通知、函件、文件、资料（包括但不限于订单确认、交货通知、质量异议、索赔函件、对账文件等）的联系邮箱：【】（以下简称"授权邮箱"）。乙方按上述授权邮箱发送的各类文件，自邮件成功发送至该邮箱系统并生成发送成功记录之时，即视为甲方已签收。甲方如需变更授权邮箱，应至少提前【】个工作日向乙方出具加盖甲方公章的书面变更通知书或双方另行签订变更协议，指明新授权邮箱、收件人信息，变更通知书自卖方签收之日起生效；变更生效前，原授权邮箱的签收效力持续有效。因甲方提供的授权邮箱错误、失效，或未及时通知变更信息，导致邮件无法送达、延迟送达的，由此产生的一切法律责任及损失，均由甲方自行承担。本条款约定的邮件签收效力，等同于纸质文件的当面签收或快递送达签收，可作为合同履行相关事实认定的有效依据。\n\n【补充协议结尾】\n1.本协议成立及生效时间：双方签字并盖章之日。\n2.本协议所涉及之条款效力优先于原合同，本协议未尽事宜依照原合同约定执行。\n3.本协议一式四份，双方各执两份，具有同等效力。`
+        },
+        {
+            title: "✉️ 5. 诉讼邮件常用 · 立案/调解/保全/撤诉等",
+            content: `【立案】对方迟迟未支付欠款，恶意欠款，故事业部申请诉讼\n\n【调解】按照此前与事业部沟通，达成调解，待法院出具调解书。具体调解内容如下：法院已于2024-08-21出具了调解书，在法院的主持下，已达成调解。\n\n【复杂判决】本案的主要争议焦点为：结合双方所提交的证据材料及庭审内容，法院认为：综上，本案判决如下：\n\n【庭前核实】您好，本案将于1月25日开庭，以下几点问题还请协助尽快核实：\n\n【保全前核实】您好，本案即将进入保全，以下两个问题烦请尽快确认：1.本案是否有新的回款（包括代付、代收）？应收欠款本金是否为XX元？2.除如下账户外，是否有别的账户信息？\n\n【开庭情况谈和解】如达成和解，法院将出具调解书，如无法达成和解，则等待法院出具判决\n\n【系统纠错】因诉讼系统案件申请人勾选〇U错误，为保障诉讼正常推进，重新借款，JKSQ2025010058项下借款同步全额退回\n\n【账户及保全】除合同所示账户信息外，如有对方其他账户信息，还请进一步补充；所涉房产能否保全，最终以法院裁定为准。\n\n【补交诉讼费】【】案由简易程序转为普通程序，须于202年月日前补交诉讼费【】元，请领导审批\n\n【拍卖辅助费】【】案需支付【】房屋拍卖调查费用【】元，请领导审批\n\n【撤诉邮件】经与事业部沟通确认，至此和解协议约定款项均已付清，法务部撤诉并作结案处理。\n\n【其他常用】双方同意民事诉讼可以通过信息网络平台在线进行。败诉方承担律师费等（参考争议解决条款）。`
+        }
+    ];
+
+    // 渲染右侧折叠面板 (仅显示标题，点击展开)
+    function buildReferencePanel() {
+        const container = document.getElementById('refListContainer');
+        if (!container) return;
+        container.innerHTML = '';
+        referenceData.forEach((item, idx) => {
+            const refDiv = document.createElement('div');
+            refDiv.className = 'ref-item';
+
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'ref-title';
+            const arrowSpan = document.createElement('span');
+            arrowSpan.className = 'arrow';
+            arrowSpan.textContent = '▶';
+            const titleTextSpan = document.createElement('span');
+            titleTextSpan.className = 'title-text';
+            titleTextSpan.textContent = item.title;
+            titleDiv.appendChild(arrowSpan);
+            titleDiv.appendChild(titleTextSpan);
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'ref-content';
+            // 保留换行和格式
+            contentDiv.innerText = item.content;  // 纯文本展示，但保留换行
+            // 让显示更舒适，转换成pre风格
+            contentDiv.style.whiteSpace = 'pre-wrap';
+            contentDiv.style.fontFamily = 'system-ui, "Segoe UI", monospace';
+            
+            refDiv.appendChild(titleDiv);
+            refDiv.appendChild(contentDiv);
+            
+            // 点击标题展开/收起
+            titleDiv.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isShow = contentDiv.classList.contains('show');
+                if (isShow) {
+                    contentDiv.classList.remove('show');
+                    arrowSpan.textContent = '▶';
+                } else {
+                    contentDiv.classList.add('show');
+                    arrowSpan.textContent = '▼';
+                }
+            });
+            container.appendChild(refDiv);
+        });
+    }
+
+    // 自动编号逻辑: 根据textarea内容，按换行分割，过滤空行，生成"1. xxx"  "2. xxx"...
+    function autoNumberText(inputStr) {
+        if (!inputStr.trim()) return '（暂无内容，请在左侧输入文字）';
+        const lines = inputStr.split(/\r?\n/);
+        const nonEmptyLines = [];
+        for (let line of lines) {
+            const trimmed = line.trim();
+            // 保留仅有空格的行？实际业务中空白段落无意义，跳过纯空白行
+            if (trimmed !== '') {
+                nonEmptyLines.push(line);  // 保留原始格式（但编号前缀前不加额外空格）
+            } else {
+                // 空行跳过不编号
+                continue;
+            }
+        }
+        if (nonEmptyLines.length === 0) return '（无有效段落）';
+        let numberedResult = '';
+        nonEmptyLines.forEach((line, idx) => {
+            const number = idx + 1;
+            numberedResult += `${number}. ${line}\n`;
+        });
+        return numberedResult;
+    }
+
+    // 更新左侧下方面板内容
+    function updateNumberedPreview() {
+        const inputElem = document.getElementById('inputText');
+        const rawText = inputElem.value;
+        const numberedText = autoNumberText(rawText);
+        const previewDiv = document.getElementById('numberedPreview');
+        if (previewDiv) {
+            previewDiv.innerText = numberedText;
+        }
+    }
+
+    // 复制预览区纯文本（无格式）
+    function copyNumberedText() {
+        const previewDiv = document.getElementById('numberedPreview');
+        let textToCopy = previewDiv.innerText;
+        if (!textToCopy || textToCopy === '（暂无内容，请在左侧输入文字）') {
+            textToCopy = '暂无编号内容可复制';
+        }
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            const copyBtn = document.getElementById('copyResultBtn');
+            const originalText = copyBtn.innerText;
+            copyBtn.innerText = '✅ 已复制！';
+            setTimeout(() => {
+                copyBtn.innerText = originalText;
+            }, 1500);
+        }).catch(() => {
+            alert('无法复制，请手动选择');
+        });
+    }
+
+    // 初始化左侧事件监听
+    function initLeftPanel() {
+        const textarea = document.getElementById('inputText');
+        if (textarea) {
+            textarea.addEventListener('input', updateNumberedPreview);
+            textarea.addEventListener('paste', function() {
+                setTimeout(updateNumberedPreview, 10);
+            });
+            // 初始调用一次，展示示例
+            textarea.value = `请注意履约\n请更正我司法定代表人信息，注意履约\n客户模板，争议解决地对我方不利，注意履约\n建议约定原告方所在地，明确诉讼费由败诉方承担`;
+            updateNumberedPreview();
+        }
+        const copyBtn = document.getElementById('copyResultBtn');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', copyNumberedText);
+        }
+    }
+
+    // 页面整体初始化
+    function init() {
+        buildReferencePanel();   // 构建右侧折叠参考区（初始仅显示三级标题）
+        initLeftPanel();        // 左侧自动编号逻辑
+    }
+
+    init();
+</script>
+</body>
+</html>

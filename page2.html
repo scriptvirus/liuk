@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>整体案件统计 & 诉讼报表转人话工具</title>
+    <!-- 引入 SheetJS 核心库 -->
+    <script src="assets/vendor/js/xlsx.full.min.js"></script>
+    <!-- 引入 Tailwind CSS & Material Icons (仅用于底部工具) -->
+    <script src="assets/vendor/js/tailwindcss.com.js"></script>
+    <link href="assets/vendor/css/material-icons.css" rel="stylesheet">
+    <style>
+        /* ========== 1-1 原始样式（完全保留，仅调整留白） ========== */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            /* 优化：减少两侧留白，让表格更舒展 */
+            background: #f0f2f5;
+            padding: 16px 12px;
+            color: #1e293b;
+        }
+
+        .dashboard-container {
+            /* 移除最大宽度限制，充分利用屏幕空间，消除两侧尴尬留白 */
+            max-width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* 顶部工具栏 */
+        .toolbar {
+            background: white;
+            border-radius: 20px;
+            padding: 16px 24px;
+            margin-bottom: 28px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            border: none;
+            background: #2c3e66;
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            padding: 10px 28px;
+            border-radius: 40px;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-download {
+            background: #1f5e3a;
+        }
+
+        .btn:hover {
+            opacity: 0.85;
+            transform: translateY(-1px);
+        }
+
+        .file-info {
+            font-size: 14px;
+            color: #4b5563;
+            background: #f8fafc;
+            padding: 6px 14px;
+            border-radius: 30px;
+        }
+
+        /* 模块通用卡片样式 - 左右无额外留白，表格自然占满 */
+        .stats-section {
+            background: white;
+            border-radius: 24px;
+            margin-bottom: 32px;
+            overflow-x: auto;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            padding: 16px 24px 8px 24px;
+            letter-spacing: -0.2px;
+        }
+
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            /* 保证表格在窄屏可滚动，但宽屏完全伸展 */
+            min-width: 880px;
+        }
+
+        .stats-table th, .stats-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #e9edf2;
+            text-align: right;
+        }
+
+        .stats-table th {
+            background-color: #f8fafd;
+            font-weight: 700;
+            color: #1e293b;
+            border-bottom: 2px solid #dce3ec;
+            text-align: center;
+        }
+
+        .stats-table td {
+            color: #1e2a3e;
+        }
+
+        /* 金额类右对齐 */
+        .stats-table td:not(:first-child) {
+            text-align: right;
+        }
+        .stats-table th:first-child, .stats-table td:first-child {
+            text-align: left;
+            font-weight: 500;
+        }
+
+        /* 模块配色表头 */
+        .section-blue th {
+            background-color: #d9eff7;
+            border-bottom-color: #6c9ebf;
+        }
+        .section-green th {
+            background-color: #e0f2e9;
+            border-bottom-color: #77b38c;
+        }
+        .section-teal th {
+            background-color: #d9f0ec;
+            border-bottom-color: #59b5a8;
+        }
+        .section-yellow th {
+            background-color: #fef5e0;
+            border-bottom-color: #e5b83c;
+        }
+        .section-orange th {
+            background-color: #ffe6d5;
+            border-bottom-color: #e68a2e;
+        }
+
+        .total-row {
+            background-color: #fef9e6;
+            font-weight: 700;
+        }
+        .total-row td {
+            background-color: #fef9e6;
+        }
+
+        .no-data-msg {
+            padding: 24px;
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        footer {
+            text-align: center;
+            font-size: 12px;
+            color: #7c8ba0;
+            margin-top: 20px;
+            margin-bottom: 12px;
+        }
+
+        /* 底部工具区域自适应，跟随父容器舒展 */
+        .tool-section-wrapper {
+            margin-top: 28px;
+            margin-bottom: 20px;
+        }
+
+        /* 小屏设备适当保留边距避免贴边 */
+        @media (max-width: 640px) {
+            body {
+                padding: 12px 8px;
+            }
+            .toolbar {
+                padding: 12px 16px;
+            }
+            .section-title {
+                padding: 12px 16px 6px 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="dashboard-container">
+    <!-- ================= 原有1-1看板区域 (内容完全不变，布局优化留白) ================= -->
+    <div class="toolbar">
+        <button class="btn" id="uploadBtn">📂 上传报表</button>
+        <button class="btn btn-download" id="downloadBtn">⬇️ 导出统计表</button>
+        <input type="file" id="fileInput" accept=".xlsx, .xls" style="display: none;" />
+        <span class="file-info" id="fileNameDisplay">未上传文件，点击上传自动解析</span>
+    </div>
+
+    <!-- 在诉案件模块 -->
+    <div class="stats-section" id="section-active">
+        <div class="section-title" style="background:#eef6fc;">📌 在诉案件</div>
+        <div style="overflow-x: auto;">
+            <table class="stats-table section-blue" id="activeTable">
+                <thead><tr><th>数量</th><th>争议金额(元)</th><th>待回款金额(元)</th><th>【26年以前】本金</th><th>【26年以前】诉讼费用</th><th>【26年以前】违约金</th><th>【2026】本金</th><th>【2026】诉讼费用</th><th>【2026】违约金</th></tr></thead>
+                <tbody id="activeBody"><tr><td colspan="9" style="text-align:center;">— 等待上传数据 —</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 执行案件模块 -->
+    <div class="stats-section" id="section-exec">
+        <div class="section-title" style="background:#e8f3ec;">⚙️ 执行案件</div>
+        <div style="overflow-x: auto;">
+            <table class="stats-table section-green" id="execTable">
+                <thead><tr><th>数量</th><th>争议金额(元)</th><th>待回款金额(元)</th><th>【26年以前】本金</th><th>【26年以前】诉讼费用</th><th>【26年以前】违约金</th><th>【2026】本金</th><th>【2026】诉讼费用</th><th>【2026】违约金</th></tr></thead>
+                <tbody id="execBody"><tr><td colspan="9" style="text-align:center;">— 等待上传数据 —</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 未结案件 (在诉+执行) -->
+    <div class="stats-section" id="section-pending">
+        <div class="section-title" style="background:#e0f2f0;">📋 未结案件</div>
+        <div style="overflow-x: auto;">
+            <table class="stats-table section-teal" id="pendingTable">
+                <thead><tr><th>数量</th><th>争议金额(元)</th><th>待回款金额(元)</th><th>—</th><th>—</th><th>—</th><th>—</th><th>—</th><th>—</th></tr></thead>
+                <tbody id="pendingBody"><tr><td colspan="9" style="text-align:center;">— 等待上传数据 —</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 已结案件 (仅结案时间在2026年) -->
+    <div class="stats-section" id="section-closed">
+        <div class="section-title" style="background:#fff1df;">✅ 已结案件 (2026年结案)</div>
+        <div style="overflow-x: auto;">
+            <table class="stats-table section-yellow" id="closedTable">
+                <thead><tr><th>数量</th><th>争议金额(元)</th><th>回款金额(元)</th><th>回款比例</th><th>【26年以前】本金</th><th>【26年以前】诉讼费用</th><th>【26年以前】违约金</th><th>【2026】本金</th><th>【2026】诉讼费用</th><th>【2026】违约金</th></tr></thead>
+                <tbody id="closedBody"><tr><td colspan="10" style="text-align:center;">— 等待上传数据 —</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 2026年回款总金额模块 -->
+    <div class="stats-section" id="section-summary2026">
+        <div class="section-title" style="background:#fff0e3;">💰 2026年回款总金额</div>
+        <div style="overflow-x: auto;">
+            <table class="stats-table section-orange" id="summaryTable">
+                <thead><tr><th>项目</th><th>【2026】本金(元)</th><th>【2026】诉讼费用(元)</th><th>【2026】违约金(元)</th></tr></thead>
+                <tbody id="summaryBody">
+                    <tr><td>在诉案件</td><td>0.00</td><td>0.00</td><td>0.00</td></tr>
+                    <tr><td>执行案件</td><td>0.00</td><td>0.00</td><td>0.00</td></tr>
+                    <tr class="total-row"><td style="font-weight:800;">合计</td><td id="sumPrincipal">0.00</td><td id="sumFee">0.00</td><td id="sumPenalty">0.00</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <footer>统计规则：在诉/执行数据基于上传Excel，执行待回款 = 「剩余执行金额」列；已结仅统计2026年结案案件；未结案件 = 在诉+执行汇总。</footer>
+
+    <!-- ================= 诉讼报表转人话工具 (底部，自动使用上方数据，无独立上传区) ================= -->
+    <div class="tool-section-wrapper">
+        <div class="bg-white rounded-xl shadow-lg p-6 md:p-8 transition-all duration-300" style="border-radius: 24px;">
+            <!-- 工具标题区 -->
+            <div class="flex items-center mb-6 border-b pb-3 border-gray-100">
+                <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-700 mr-3">
+                    <i class="material-icons text-xl">description</i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800">诉讼报表转人话工具</h2>
+                <span class="ml-3 text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">自动读取上方报表数据</span>
+            </div>
+
+            <!-- 日期设置区域 (保留原1-4的核心日期输入) -->
+            <div class="mb-8">
+                <div class="flex items-center mb-4">
+                    <div class="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-green-700 mr-2">
+                        <i class="material-icons text-sm">date_range</i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-700">统计日期设置</h3>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">未结案件统计日期（截至【】）</label>
+                        <input type="date" id="toolDate1" class="w-full p-2.5 border border-gray-200 rounded-md focus:ring-2 focus:ring-green-300 focus:border-green-400">
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">已结案件统计期间（【】已结案件）</label>
+                        <input type="text" id="toolDate2" placeholder="例如：2026年1-3月" class="w-full p-2.5 border border-gray-200 rounded-md focus:ring-2 focus:ring-green-300">
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">回款统计期间（【】回款）</label>
+                        <input type="text" id="toolDate3" placeholder="例如：2026年3月" class="w-full p-2.5 border border-gray-200 rounded-md focus:ring-2 focus:ring-green-300">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 生成按钮和结果区域 -->
+            <div class="mb-6">
+                <button id="generateTextBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-lg shadow-md transition flex items-center justify-center gap-2">
+                    <i class="material-icons">auto_awesome</i> 生成统计文本
+                </button>
+            </div>
+
+            <!-- 结果显示区域 -->
+            <div id="toolResultArea" class="hidden mb-6">
+                <div class="flex items-center mb-3">
+                    <div class="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center text-green-700 mr-2">
+                        <i class="material-icons text-sm">assignment</i>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-700">生成的诉讼统计文本</h3>
+                </div>
+                <div class="bg-gray-50 rounded-xl p-5 border border-green-100">
+                    <div id="toolResultText" class="whitespace-pre-wrap text-gray-800 leading-relaxed text-base"></div>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-4 mt-5">
+                    <button id="copyResultBtn" class="flex-1 bg-emerald-800 hover:bg-emerald-900 text-white font-medium py-2.5 rounded-lg transition flex items-center justify-center gap-2">
+                        <i class="material-icons">content_copy</i> 复制整段文本
+                    </button>
+                    <button id="resetToolBtn" class="flex-1 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium py-2.5 rounded-lg transition flex items-center justify-center gap-2">
+                        <i class="material-icons">refresh</i> 重置日期/清空结果
+                    </button>
+                </div>
+                <div id="copySuccessMsg" class="mt-3 p-2 bg-green-50 border border-green-200 rounded-lg text-green-700 text-center text-sm hidden">
+                    ✓ 文本已成功复制到剪贴板！
+                </div>
+            </div>
+
+            <!-- 错误/提示区域 -->
+            <div id="toolErrorMsg" class="hidden bg-amber-50 p-3 rounded-lg border border-amber-200 text-amber-700 text-sm"></div>
+            <div class="text-xs text-gray-400 mt-4 text-center">说明：工具直接使用上方「在诉/执行/已结」等统计模块的数据，无需单独上传Excel。</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ================= 1-1 原始逻辑（完全保留，无任何计算改动） =================
+    // ---------- 工具函数 ----------
+    function formatMoney(val) {
+        if (val === undefined || val === null || isNaN(val)) return "0.00";
+        let num = Number(val);
+        return num.toFixed(2);
+    }
+
+    function sumColumn(dataRows, colIdx) {
+        let total = 0;
+        for (let row of dataRows) {
+            let v = row[colIdx];
+            if (v !== undefined && v !== null && v !== "") {
+                let num = parseFloat(v);
+                if (!isNaN(num)) total += num;
+            }
+        }
+        return total;
+    }
+
+    function parseExcelDate(value) {
+        if (!value) return null;
+        if (typeof value === 'number') {
+            let date = XLSX.SSF.parse_date_code(value);
+            if (date) return new Date(date.y, date.m-1, date.d);
+            return null;
+        }
+        let strDate = String(value).trim();
+        if (strDate === "") return null;
+        let d = new Date(strDate);
+        if (!isNaN(d.getTime())) return d;
+        let ms = Date.parse(strDate);
+        if (!isNaN(ms)) return new Date(ms);
+        return null;
+    }
+
+    function buildHeaderMap(headers) {
+        let map = new Map();
+        headers.forEach((h, idx) => {
+            if (h && typeof h === 'string') {
+                let key = h.trim().replace(/\n/g, '');
+                map.set(key, idx);
+                let simple = key.replace(/[\r\n]/g, '');
+                map.set(simple, idx);
+            }
+        });
+        return map;
+    }
+
+    // 全局存储最新的统计结果 (供底部工具使用)
+    window.lawsuitStats = null;
+
+    async function processExcelFile(file) {
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data, { type: 'array', cellDates: false, defval: "" });
+        
+        const activeSheet = workbook.Sheets['在诉'];
+        const execSheet = workbook.Sheets['执行'];
+        const closedSheet = workbook.Sheets['已结'];
+        
+        if (!activeSheet || !execSheet || !closedSheet) {
+            alert("上传的文件缺少必需的sheet：「在诉」、「执行」、「已结」，请检查模板。");
+            return null;
+        }
+        
+        const activeData = XLSX.utils.sheet_to_json(activeSheet, { header: 1, defval: "" });
+        const execData = XLSX.utils.sheet_to_json(execSheet, { header: 1, defval: "" });
+        const closedData = XLSX.utils.sheet_to_json(closedSheet, { header: 1, defval: "" });
+        
+        if (activeData.length < 2 || execData.length < 2 || closedData.length < 2) {
+            alert("至少一个sheet为空，请检查数据");
+            return null;
+        }
+        
+        const activeHeaders = activeData[0].map(cell => (cell === undefined ? "" : String(cell).trim()));
+        const activeHeaderMap = buildHeaderMap(activeHeaders);
+        const activeRows = activeData.slice(1).filter(row => row.some(cell => cell !== undefined && cell !== ""));
+        
+        let activeTotalCnt = activeRows.length;
+        let activeDisputeSum = sumColumn(activeRows, activeHeaderMap.get('争议金额'));
+        let activeWaitSum = sumColumn(activeRows, activeHeaderMap.get('待回款金额'));
+        let activeOldPrincipal = sumColumn(activeRows, activeHeaderMap.get('【26年以前】本金'));
+        let activeOldCost = sumColumn(activeRows, activeHeaderMap.get('【26年以前】诉讼费用'));
+        let activeOldPenalty = sumColumn(activeRows, activeHeaderMap.get('【26年以前】违约金'));
+        let activeNewPrincipal = sumColumn(activeRows, activeHeaderMap.get('【2026】本金'));
+        let activeNewCost = sumColumn(activeRows, activeHeaderMap.get('【2026】诉讼费用'));
+        let activeNewPenalty = sumColumn(activeRows, activeHeaderMap.get('【2026】违约金'));
+        
+        const execHeaders = execData[0].map(cell => (cell === undefined ? "" : String(cell).trim()));
+        const execHeaderMap = buildHeaderMap(execHeaders);
+        const execRows = execData.slice(1).filter(row => row.some(cell => cell !== undefined && cell !== ""));
+        let execTotalCnt = execRows.length;
+        let execDisputeSum = sumColumn(execRows, execHeaderMap.get('争议金额'));
+        let execWaitSum = sumColumn(execRows, execHeaderMap.get('剩余执行金额'));
+        let execOldPrincipal = sumColumn(execRows, execHeaderMap.get('【26年以前】本金'));
+        let execOldCost = sumColumn(execRows, execHeaderMap.get('【26年以前】诉讼费用'));
+        let execOldPenalty = sumColumn(execRows, execHeaderMap.get('【26年以前】违约金'));
+        let execNewPrincipal = sumColumn(execRows, execHeaderMap.get('【2026】本金'));
+        let execNewCost = sumColumn(execRows, execHeaderMap.get('【2026】诉讼费用'));
+        let execNewPenalty = sumColumn(execRows, execHeaderMap.get('【2026】违约金'));
+        
+        const closedHeaders = closedData[0].map(cell => (cell === undefined ? "" : String(cell).trim()));
+        const closedHeaderMap = buildHeaderMap(closedHeaders);
+        const allClosedRows = closedData.slice(1).filter(row => row.some(cell => cell !== undefined && cell !== ""));
+        const endDateColIdx = closedHeaderMap.get('结案时间');
+        const disputeColIdx = closedHeaderMap.get('争议金额');
+        const recoveryColIdx = closedHeaderMap.get('收回金额');
+        const oldPrincipalIdx = closedHeaderMap.get('【26年以前】本金');
+        const oldCostIdx = closedHeaderMap.get('【26年以前】诉讼费用');
+        const oldPenaltyIdx = closedHeaderMap.get('【26年以前】违约金');
+        const newPrincipalIdx = closedHeaderMap.get('【2026】本金');
+        const newCostIdx = closedHeaderMap.get('【2026】诉讼费用');
+        const newPenaltyIdx = closedHeaderMap.get('【2026】违约金');
+        
+        const filteredClosed = [];
+        for (let row of allClosedRows) {
+            if (endDateColIdx === undefined) break;
+            let dateVal = row[endDateColIdx];
+            let dateObj = parseExcelDate(dateVal);
+            if (dateObj && dateObj.getFullYear() === 2026) {
+                filteredClosed.push(row);
+            }
+        }
+        
+        let closedCnt = filteredClosed.length;
+        let closedDispute = sumColumn(filteredClosed, disputeColIdx);
+        let closedRecovery = sumColumn(filteredClosed, recoveryColIdx);
+        let closedOldPri = sumColumn(filteredClosed, oldPrincipalIdx);
+        let closedOldCost = sumColumn(filteredClosed, oldCostIdx);
+        let closedOldPen = sumColumn(filteredClosed, oldPenaltyIdx);
+        let closedNewPri = sumColumn(filteredClosed, newPrincipalIdx);
+        let closedNewCost = sumColumn(filteredClosed, newCostIdx);
+        let closedNewPen = sumColumn(filteredClosed, newPenaltyIdx);
+        
+        let recoveryRatio = (closedDispute === 0) ? "0.00%" : ((closedRecovery / closedDispute) * 100).toFixed(2) + "%";
+        
+        let pendingCnt = activeTotalCnt + execTotalCnt;
+        let pendingDispute = activeDisputeSum + execDisputeSum;
+        let pendingWait = activeWaitSum + execWaitSum;
+        
+        let total2026Principal = activeNewPrincipal + execNewPrincipal + closedNewPri;
+        let total2026Cost = activeNewCost + execNewCost + closedNewCost;
+        let total2026Penalty = activeNewPenalty + execNewPenalty + closedNewPen;
+        
+        // 渲染表格
+        renderActive(activeTotalCnt, activeDisputeSum, activeWaitSum, activeOldPrincipal, activeOldCost, activeOldPenalty, activeNewPrincipal, activeNewCost, activeNewPenalty);
+        renderExec(execTotalCnt, execDisputeSum, execWaitSum, execOldPrincipal, execOldCost, execOldPenalty, execNewPrincipal, execNewCost, execNewPenalty);
+        renderPending(pendingCnt, pendingDispute, pendingWait);
+        renderClosed(closedCnt, closedDispute, closedRecovery, recoveryRatio, closedOldPri, closedOldCost, closedOldPen, closedNewPri, closedNewCost, closedNewPen);
+        renderSummary(activeNewPrincipal, execNewPrincipal, closedNewPri, activeNewCost, execNewCost, closedNewCost, activeNewPenalty, execNewPenalty, closedNewPen);
+        
+        // 存储全局统计对象 (供底部工具使用，完全符合原1-4所需字段)
+        window.lawsuitStats = {
+            unclosed: { count: pendingCnt, disputeAmount: pendingDispute, pendingRecovery: pendingWait },
+            lawsuit: { count: activeTotalCnt, disputeAmount: activeDisputeSum, pendingRecovery: activeWaitSum, recovery2026: activeNewPrincipal + activeNewCost + activeNewPenalty },
+            execution: { count: execTotalCnt, disputeAmount: execDisputeSum, pendingRecovery: execWaitSum, recovery2026: execNewPrincipal + execNewCost + execNewPenalty },
+            closed: { 
+                count: closedCnt, disputeAmount: closedDispute, recoveredAmount: closedRecovery, 
+                recoveryRatio: parseFloat(recoveryRatio), 
+                recovery2026: closedNewPri + closedNewCost + closedNewPen 
+            },
+            totalRecovery2026: total2026Principal + total2026Cost + total2026Penalty
+        };
+        
+        return window.lawsuitStats;
+    }
+    
+    function renderActive(cnt, dispute, wait, oldPri, oldCost, oldPen, newPri, newCost, newPen) {
+        let html = `<tr><td>${cnt}</td><td>${formatMoney(dispute)}</td><td>${formatMoney(wait)}</td><td>${formatMoney(oldPri)}</td><td>${formatMoney(oldCost)}</td><td>${formatMoney(oldPen)}</td><td>${formatMoney(newPri)}</td><td>${formatMoney(newCost)}</td><td>${formatMoney(newPen)}</td></tr>`;
+        document.getElementById('activeBody').innerHTML = html;
+    }
+    function renderExec(cnt, dispute, wait, oldPri, oldCost, oldPen, newPri, newCost, newPen) {
+        let html = `<tr><td>${cnt}</td><td>${formatMoney(dispute)}</td><td>${formatMoney(wait)}</td><td>${formatMoney(oldPri)}</td><td>${formatMoney(oldCost)}</td><td>${formatMoney(oldPen)}</td><td>${formatMoney(newPri)}</td><td>${formatMoney(newCost)}</td><td>${formatMoney(newPen)}</td></tr>`;
+        document.getElementById('execBody').innerHTML = html;
+    }
+    function renderPending(cnt, dispute, wait) {
+        let html = `<tr><td>${cnt}</td><td>${formatMoney(dispute)}</td><td>${formatMoney(wait)}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`;
+        document.getElementById('pendingBody').innerHTML = html;
+    }
+    function renderClosed(cnt, dispute, recovery, ratio, oldPri, oldCost, oldPen, newPri, newCost, newPen) {
+        let html = `<tr><td>${cnt}</td><td>${formatMoney(dispute)}</td><td>${formatMoney(recovery)}</td><td>${ratio}</td><td>${formatMoney(oldPri)}</td><td>${formatMoney(oldCost)}</td><td>${formatMoney(oldPen)}</td><td>${formatMoney(newPri)}</td><td>${formatMoney(newCost)}</td><td>${formatMoney(newPen)}</td></tr>`;
+        document.getElementById('closedBody').innerHTML = html;
+    }
+    function renderSummary(activePri, execPri, closedPri, activeCost, execCost, closedCost, activePen, execPen, closedPen) {
+        let rows = `<tr><td>在诉案件</td><td>${formatMoney(activePri)}</td><td>${formatMoney(activeCost)}</td><td>${formatMoney(activePen)}</td></tr>
+                    <tr><td>执行案件</td><td>${formatMoney(execPri)}</td><td>${formatMoney(execCost)}</td><td>${formatMoney(execPen)}</td></tr>
+                    <tr><td>已结案件</td><td>${formatMoney(closedPri)}</td><td>${formatMoney(closedCost)}</td><td>${formatMoney(closedPen)}</td></tr>`;
+        document.getElementById('summaryBody').innerHTML = rows + `<tr class="total-row"><td style="font-weight:800;">合计</td><td>${formatMoney(activePri+execPri+closedPri)}</td><td>${formatMoney(activeCost+execCost+closedCost)}</td><td>${formatMoney(activePen+execPen+closedPen)}</td></tr>`;
+    }
+    
+    function downloadStatistics() {
+        let sheetsData = [];
+        sheetsData.push(["在诉案件"]); sheetsData.push(["数量","争议金额(元)","待回款金额(元)","【26年以前】本金","【26年以前】诉讼费用","【26年以前】违约金","【2026】本金","【2026】诉讼费用","【2026】违约金"]);
+        let activeRow = getRowFromTable('activeTable'); if(activeRow) sheetsData.push(activeRow); else sheetsData.push(["无数据","","","","","","","",""]);
+        sheetsData.push([]); sheetsData.push(["执行案件"]); sheetsData.push(["数量","争议金额(元)","待回款金额(元)","【26年以前】本金","【26年以前】诉讼费用","【26年以前】违约金","【2026】本金","【2026】诉讼费用","【2026】违约金"]);
+        let execRow = getRowFromTable('execTable'); if(execRow) sheetsData.push(execRow); else sheetsData.push(["无数据","","","","","","","",""]);
+        sheetsData.push([]); sheetsData.push(["未结案件"]); sheetsData.push(["数量","争议金额(元)","待回款金额(元)","—","—","—","—","—","—"]);
+        let pendingRow = getRowFromTable('pendingTable'); if(pendingRow) sheetsData.push(pendingRow.slice(0,3).concat(["—","—","—","—","—","—"])); else sheetsData.push(["无数据","","","—","—","—","—","—","—"]);
+        sheetsData.push([]); sheetsData.push(["已结案件 (2026年结案)"]); sheetsData.push(["数量","争议金额(元)","回款金额(元)","回款比例","【26年以前】本金","【26年以前】诉讼费用","【26年以前】违约金","【2026】本金","【2026】诉讼费用","【2026】违约金"]);
+        let closedRow = getRowFromTable('closedTable', true); if(closedRow) sheetsData.push(closedRow); else sheetsData.push(["无数据","","","","","","","","",""]);
+        sheetsData.push([]); sheetsData.push(["2026年回款总金额"]); sheetsData.push(["项目","【2026】本金(元)","【2026】诉讼费用(元)","【2026】违约金(元)"]);
+        let summaryRows = document.querySelectorAll('#summaryBody tr');
+        for (let tr of summaryRows) { let cells = tr.querySelectorAll('td'); if(cells.length>=4) sheetsData.push([cells[0].innerText.trim(), cells[1].innerText.trim(), cells[2].innerText.trim(), cells[3].innerText.trim()]); }
+        const ws = XLSX.utils.aoa_to_sheet(sheetsData); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "诉讼案件统计"); XLSX.writeFile(wb, `诉讼统计_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.xlsx`);
+    }
+    function getRowFromTable(tableId, isClosed = false) { const table = document.getElementById(tableId); if(!table) return null; const tbody = table.querySelector('tbody'); if(!tbody||tbody.children.length===0) return null; const row = tbody.children[0]; const cells = row.querySelectorAll('td'); if(!cells.length) return null; let rowData=[]; for(let i=0;i<cells.length;i++){ let txt=cells[i].innerText.trim(); if(txt==="—") txt=""; rowData.push(txt); } if(isClosed && rowData.length!==10) return null; if(!isClosed && rowData.length!==9) return null; return rowData; }
+    
+    const uploadBtn = document.getElementById('uploadBtn'), fileInput = document.getElementById('fileInput'), downloadBtn = document.getElementById('downloadBtn'), fileNameSpan = document.getElementById('fileNameDisplay');
+    uploadBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async (e) => { const file = e.target.files[0]; if(!file) return; if(!file.name.match(/\.(xlsx|xls)$/i)){ alert("请上传 .xlsx 或 .xls 格式文件"); return; } fileNameSpan.innerText = `已加载：${file.name}`; try { await processExcelFile(file); const toolMsgDiv = document.getElementById('toolErrorMsg'); if(toolMsgDiv) toolMsgDiv.classList.add('hidden'); } catch(err) { console.error(err); alert("解析失败，请检查文件格式是否符合模板要求（需包含在诉/执行/已结三个sheet）"); fileNameSpan.innerText = "解析失败，请重试"; } });
+    downloadBtn.addEventListener('click', () => downloadStatistics());
+    window.addEventListener('load', () => { renderActive(0,0,0,0,0,0,0,0,0); renderExec(0,0,0,0,0,0,0,0,0); renderPending(0,0,0); renderClosed(0,0,0,"0.00%",0,0,0,0,0,0); renderSummary(0,0,0,0,0,0,0,0,0); });
+    
+    // ================= 底部工具逻辑 (基于全局window.lawsuitStats生成人话) =================
+    (function initTool() {
+        const date1Input = document.getElementById('toolDate1');
+        const date2Input = document.getElementById('toolDate2');
+        const date3Input = document.getElementById('toolDate3');
+        const generateBtn = document.getElementById('generateTextBtn');
+        const resultArea = document.getElementById('toolResultArea');
+        const resultTextDiv = document.getElementById('toolResultText');
+        const copyBtn = document.getElementById('copyResultBtn');
+        const resetBtn = document.getElementById('resetToolBtn');
+        const copyMsg = document.getElementById('copySuccessMsg');
+        const errorDiv = document.getElementById('toolErrorMsg');
+
+        function toWan(amountYuan) { if (amountYuan === undefined || isNaN(amountYuan)) return 0; return Math.round((amountYuan / 10000) * 10) / 10; }
+        
+        function generateTextFromStats() {
+            if (!window.lawsuitStats) {
+                errorDiv.innerHTML = '<i class="material-icons text-sm mr-1">warning</i> 暂未检测到报表数据，请先在上方“上传报表”并成功解析。';
+                errorDiv.classList.remove('hidden');
+                resultArea.classList.add('hidden');
+                return false;
+            }
+            errorDiv.classList.add('hidden');
+            const stats = window.lawsuitStats;
+            const date1Raw = date1Input.value;
+            const date2Raw = date2Input.value.trim();
+            const date3Raw = date3Input.value.trim();
+            if (!date1Raw) { errorDiv.innerHTML = '请填写未结案件统计日期'; errorDiv.classList.remove('hidden'); return false; }
+            if (!date2Raw) { errorDiv.innerHTML = '请填写已结案件统计期间'; errorDiv.classList.remove('hidden'); return false; }
+            if (!date3Raw) { errorDiv.innerHTML = '请填写回款统计期间'; errorDiv.classList.remove('hidden'); return false; }
+            const formattedDate1 = date1Raw.split('-').join('年').replace(/-/g, '月') + '日';
+            
+            const unclosedCnt = stats.unclosed.count;
+            const unclosedDispute = toWan(stats.unclosed.disputeAmount);
+            const unclosedWait = toWan(stats.unclosed.pendingRecovery);
+            const lawsuitCnt = stats.lawsuit.count, lawsuitDispute = toWan(stats.lawsuit.disputeAmount), lawsuitWait = toWan(stats.lawsuit.pendingRecovery);
+            const execCnt = stats.execution.count, execDispute = toWan(stats.execution.disputeAmount), execWait = toWan(stats.execution.pendingRecovery);
+            const closedCnt = stats.closed.count, closedDispute = toWan(stats.closed.disputeAmount), closedRecover = toWan(stats.closed.recoveredAmount);
+            const closedRatio = (typeof stats.closed.recoveryRatio === 'number') ? stats.closed.recoveryRatio.toFixed(1) : "0.0";
+            const lawsuitRec2026 = toWan(stats.lawsuit.recovery2026);
+            const execRec2026 = toWan(stats.execution.recovery2026);
+            const closedRec2026 = toWan(stats.closed.recovery2026);
+            const totalRec2026 = toWan(stats.totalRecovery2026);
+            
+            const text = `1.截至${formattedDate1}，未结案件${unclosedCnt}件，争议金额总计${unclosedDispute}万元，待回款金额总计${unclosedWait}万元。其中在诉案件${lawsuitCnt}件，争议金额总计${lawsuitDispute}万元，待回款金额总计${lawsuitWait}万元；执行案件${execCnt}件，争议金额总计${execDispute}万元，待回款金额总计${execWait}万元。
+2.${date2Raw}已结案件${closedCnt}件，争议金额总计${closedDispute}万元，回款金额总计${closedRecover}万元，回款比例${closedRatio}%。
+3.${date3Raw}回款${totalRec2026}万元，其中在诉案件回款${lawsuitRec2026}万元、执行案件回款${execRec2026}万元、已结案件回款${closedRec2026}万元。`;
+            return text;
+        }
+        
+        generateBtn.addEventListener('click', () => {
+            const text = generateTextFromStats();
+            if (text) {
+                resultTextDiv.innerText = text;
+                resultArea.classList.remove('hidden');
+                copyMsg.classList.add('hidden');
+            }
+        });
+        
+        copyBtn.addEventListener('click', () => {
+            const txt = resultTextDiv.innerText;
+            if (!txt) return;
+            navigator.clipboard.writeText(txt).then(() => {
+                copyMsg.classList.remove('hidden');
+                setTimeout(() => copyMsg.classList.add('hidden'), 2000);
+            }).catch(() => alert('复制失败，请手动复制'));
+        });
+        
+        resetBtn.addEventListener('click', () => {
+            date1Input.value = '';
+            date2Input.value = '';
+            date3Input.value = '';
+            resultArea.classList.add('hidden');
+            errorDiv.classList.add('hidden');
+            copyMsg.classList.add('hidden');
+        });
+    })();
+</script>
+</body>
+</html>

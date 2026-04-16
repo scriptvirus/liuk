@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>长虹佳华 - 逾期账款分析看板</title>
+    <!-- SheetJS 核心库 -->
+    <script src="assets/vendor/js/xlsx.full.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: #e8f3e8;
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            padding: 32px 24px;
+            color: #1a3c1a;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* 卡片样式 - 绿色主调 */
+        .card {
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 12px 30px rgba(0, 60, 0, 0.08);
+            padding: 28px 32px;
+            margin-bottom: 28px;
+            transition: all 0.2s;
+            border: 1px solid #cfe8cf;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #d9f0d9;
+            padding-bottom: 16px;
+        }
+
+        .card-header h2 {
+            font-size: 1.6rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #2c6e2c, #1f4f1f);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            letter-spacing: -0.3px;
+        }
+
+        .upload-area {
+            display: flex;
+            gap: 18px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .file-label {
+            background-color: #2b6e2b;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 40px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .file-label:hover {
+            background-color: #1f551f;
+            transform: translateY(-1px);
+        }
+
+        #file-name {
+            font-size: 0.85rem;
+            color: #2d572d;
+            background: #f0f9f0;
+            padding: 6px 14px;
+            border-radius: 32px;
+            border: 1px solid #c2e0c2;
+        }
+
+        .compare-panel {
+            background: #f6fcf6;
+            border-radius: 20px;
+            padding: 20px 24px;
+            margin-top: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 28px;
+            align-items: flex-end;
+            border: 1px solid #cde5cd;
+        }
+
+        .compare-item {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .compare-item label {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #2b572b;
+            letter-spacing: 0.3px;
+        }
+
+        .compare-item input {
+            padding: 10px 14px;
+            border-radius: 20px;
+            border: 1px solid #bddcbd;
+            background: white;
+            font-size: 0.95rem;
+            width: 180px;
+            transition: 0.2s;
+        }
+
+        .compare-item input:focus {
+            outline: none;
+            border-color: #2b6e2b;
+            box-shadow: 0 0 0 2px rgba(43,110,43,0.2);
+        }
+
+        .btn-refresh {
+            background: #e2f0e2;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 32px;
+            font-weight: 600;
+            color: #2a5e2a;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-refresh:hover {
+            background: #cde5cd;
+            transform: scale(0.97);
+        }
+
+        /* 分析报告区域 */
+        .report-card {
+            background: #ffffff;
+            border-radius: 28px;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.05);
+            padding: 28px 32px;
+            border: 1px solid #cfe8cf;
+        }
+
+        .report-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #1f4f1f;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .report-title span {
+            background: #e5f4e5;
+            padding: 6px 14px;
+            border-radius: 60px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #2b6e2b;
+        }
+
+        .analysis-text {
+            background: #fefcf5;
+            border-left: 6px solid #3c9e3c;
+            padding: 28px 28px;
+            border-radius: 24px;
+            font-size: 1.05rem;
+            line-height: 1.65;
+            color: #1e3a1e;
+            font-weight: 500;
+            box-shadow: inset 0 1px 2px #fff8, 0 2px 6px rgba(0,0,0,0.02);
+        }
+
+        .analysis-text p {
+            margin-bottom: 8px;
+        }
+
+        .badge {
+            font-weight: 700;
+            color: #267c26;
+            background: #e0f5e0;
+            display: inline-block;
+            padding: 0 6px;
+            border-radius: 16px;
+            font-size: 0.9rem;
+        }
+
+        .footer-note {
+            margin-top: 20px;
+            font-size: 0.75rem;
+            color: #5b8c5b;
+            text-align: right;
+            border-top: 1px solid #d9f0d9;
+            padding-top: 16px;
+        }
+
+        hr {
+            margin: 12px 0;
+            border-color: #d9f0d9;
+        }
+
+        .error-msg {
+            color: #b91c1c;
+            background: #fee2e2;
+            border-radius: 20px;
+            padding: 12px 20px;
+            margin-top: 16px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <div class="card-header">
+            <h2>🌿 逾期账款动态分析引擎</h2>
+            <div class="upload-area">
+                <label class="file-label">
+                    📂 上传 Excel (.xlsx)
+                    <input type="file" id="excelUpload" accept=".xlsx, .xls" style="display: none;">
+                </label>
+                <span id="file-name">未选择文件</span>
+            </div>
+        </div>
+        <div class="compare-panel">
+            <div class="compare-item">
+                <label>📆 上月逾期60天以上客户数</label>
+                <input type="number" id="lastMonthCust" placeholder="例如 444" value="444" step="1">
+            </div>
+            <div class="compare-item">
+                <label>💰 上月逾期60天以上金额 (万元)</label>
+                <input type="number" id="lastMonthAmt" placeholder="例如 179529.1" value="179529.1" step="0.1">
+            </div>
+            <button class="btn-refresh" id="refreshReportBtn">🔄 刷新环比报告</button>
+        </div>
+        <div class="footer-note">
+            ✅ 依据《逾期账款明细表》实时运算 | 不使用“当月余额”列 | 客户数量按序号最大值统计 | 剩余客户 = 总客户 - 电商 - 已诉讼 - 拟诉讼 - 已回款
+        </div>
+    </div>
+
+    <div class="report-card">
+        <div class="report-title">
+            📑 逾期分析简报
+            <span>基于已上传数据动态生成</span>
+        </div>
+        <div id="analysisResult" class="analysis-text">
+            ⚙️ 请上传“长虹佳华逾期账款明细表(.xlsx)”以生成分析报告...
+        </div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // ----------------------------- 全局数据状态 ---------------------------------
+        let currentSheetData = null;      // 存储解析后的数据行 (不含合计,不含表头)
+        let summaryRow = null;             // 存储合计行 { sum61_120, sum121_360, sum361 }
+        let totalOverdueAmount = 0;        // 逾期60天以上总金额 (合计行 E+F+G)
+        let totalCustomerCount = 0;        // 逾期客户数量 (序号最大值)
+        
+        // 辅助DOM
+        const fileInput = document.getElementById('excelUpload');
+        const fileNameSpan = document.getElementById('file-name');
+        const analysisDiv = document.getElementById('analysisResult');
+        const lastMonthCustInput = document.getElementById('lastMonthCust');
+        const lastMonthAmtInput = document.getElementById('lastMonthAmt');
+        const refreshBtn = document.getElementById('refreshReportBtn');
+
+        // 工具函数：提取涉案金额数字（万元）
+        function extractAmountFromLitigation(text) {
+            if (!text || typeof text !== 'string') return 0;
+            // 匹配 "涉案金额 XXXX.XX 万元" 或 "涉案金额xxx万元" 带逗号等情况
+            const regex = /涉案金额\s*([\d,]+(?:\.\d+)?)\s*万元/;
+            const match = text.match(regex);
+            if (match && match[1]) {
+                let numStr = match[1].replace(/,/g, '');
+                return parseFloat(numStr);
+            }
+            return 0;
+        }
+
+        // 解析Excel核心函数
+        function parseExcelWorkbook(data) {
+            const workbook = XLSX.read(data, { type: 'array', cellDates: false, defval: "" });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" });
+            if (!rows || rows.length < 4) {
+                throw new Error("表格行数不足，请检查文件是否为标准逾期账款明细表");
+            }
+            
+            // 1. 定位表头行
+            let headerRowIndex = -1;
+            let colIndex = {
+                seq: -1,                // 序号列
+                overdue61_120: -1,      // 逾期61-120天
+                overdue121_360: -1,     // 逾期121-360天
+                overdue361plus: -1,     // 逾期361天以上
+                collectionMeasure: -1,  // 清收措施
+                litigationInfo: -1       // 仲裁/诉讼案件涉案金额、进展阶段、进展情况等
+            };
+            
+            for (let i = 0; i < Math.min(rows.length, 20); i++) {
+                const row = rows[i];
+                if (!row || row.length === 0) continue;
+                for (let j = 0; j < row.length; j++) {
+                    const cellVal = (row[j] || "").toString().trim();
+                    if (cellVal === "序号" && colIndex.seq === -1) colIndex.seq = j;
+                    if (cellVal === "逾期61-120天" && colIndex.overdue61_120 === -1) colIndex.overdue61_120 = j;
+                    if (cellVal === "逾期121-360天" && colIndex.overdue121_360 === -1) colIndex.overdue121_360 = j;
+                    if (cellVal === "逾期361天以上" && colIndex.overdue361plus === -1) colIndex.overdue361plus = j;
+                    if (cellVal === "清收措施" && colIndex.collectionMeasure === -1) colIndex.collectionMeasure = j;
+                    if (cellVal && (cellVal.includes("仲裁/诉讼案件涉案金额") || cellVal.includes("仲裁/诉讼案件"))) {
+                        if (colIndex.litigationInfo === -1) colIndex.litigationInfo = j;
+                    }
+                }
+                if (colIndex.seq !== -1 && colIndex.overdue61_120 !== -1 && colIndex.collectionMeasure !== -1) {
+                    headerRowIndex = i;
+                    break;
+                }
+            }
+            
+            if (headerRowIndex === -1) {
+                throw new Error("未找到标准表头，请确认包含：序号、逾期61-120天、逾期121-360天、逾期361天以上、清收措施等列");
+            }
+            
+            // 2. 遍历数据行和合计行
+            const dataRows = [];
+            let maxSeq = 0;
+            let foundSummaryRow = null;
+            
+            for (let i = headerRowIndex + 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || row.length === 0) continue;
+                const firstCell = (row[0] !== undefined && row[0] !== null) ? row[0].toString().trim() : "";
+                if (firstCell === "合计" || firstCell.includes("合计")) {
+                    let sum61_120 = 0, sum121_360 = 0, sum361 = 0;
+                    if (colIndex.overdue61_120 !== -1 && row[colIndex.overdue61_120] !== undefined) {
+                        sum61_120 = parseFloat(row[colIndex.overdue61_120]) || 0;
+                    }
+                    if (colIndex.overdue121_360 !== -1 && row[colIndex.overdue121_360] !== undefined) {
+                        sum121_360 = parseFloat(row[colIndex.overdue121_360]) || 0;
+                    }
+                    if (colIndex.overdue361plus !== -1 && row[colIndex.overdue361plus] !== undefined) {
+                        sum361 = parseFloat(row[colIndex.overdue361plus]) || 0;
+                    }
+                    foundSummaryRow = { sum61_120, sum121_360, sum361 };
+                    continue;
+                }
+                
+                // 提取序号列数值（支持公式或数字）
+                let seqVal = null;
+                if (colIndex.seq !== -1 && row[colIndex.seq] !== undefined && row[colIndex.seq] !== "") {
+                    let rawSeq = row[colIndex.seq];
+                    if (typeof rawSeq === 'number') seqVal = rawSeq;
+                    else if (typeof rawSeq === 'string') seqVal = parseInt(rawSeq, 10);
+                    else if (rawSeq && rawSeq.toString) seqVal = parseInt(rawSeq.toString(), 10);
+                }
+                if (seqVal !== null && !isNaN(seqVal) && seqVal > 0) {
+                    if (seqVal > maxSeq) maxSeq = seqVal;
+                }
+                
+                const overdue61 = colIndex.overdue61_120 !== -1 ? (parseFloat(row[colIndex.overdue61_120]) || 0) : 0;
+                const overdue121 = colIndex.overdue121_360 !== -1 ? (parseFloat(row[colIndex.overdue121_360]) || 0) : 0;
+                const overdue361 = colIndex.overdue361plus !== -1 ? (parseFloat(row[colIndex.overdue361plus]) || 0) : 0;
+                const collectMeasure = (colIndex.collectionMeasure !== -1 && row[colIndex.collectionMeasure]) ? row[colIndex.collectionMeasure].toString().trim() : "";
+                const litigationText = (colIndex.litigationInfo !== -1 && row[colIndex.litigationInfo]) ? row[colIndex.litigationInfo].toString().trim() : "";
+                
+                dataRows.push({
+                    seq: seqVal,
+                    overdue61_120: overdue61,
+                    overdue121_360: overdue121,
+                    overdue361_plus: overdue361,
+                    collectionMeasure: collectMeasure,
+                    litigationInfo: litigationText
+                });
+            }
+            
+            if (!foundSummaryRow) {
+                console.warn("未找到明确的'合计'行，使用明细行累计逾期金额代替");
+                let total61=0, total121=0, total361=0;
+                dataRows.forEach(r => {
+                    total61 += r.overdue61_120;
+                    total121 += r.overdue121_360;
+                    total361 += r.overdue361_plus;
+                });
+                foundSummaryRow = { sum61_120: total61, sum121_360: total121, sum361: total361 };
+            }
+            
+            // 逾期客户数量 = 序号最大值（若为0则用数据行数）
+            let clientCount = maxSeq;
+            if (clientCount === 0 && dataRows.length > 0) clientCount = dataRows.length;
+            
+            const totalAmt = foundSummaryRow.sum61_120 + foundSummaryRow.sum121_360 + foundSummaryRow.sum361;
+            
+            return { dataRows, summary: foundSummaryRow, totalOverdueAmt: totalAmt, clientCount };
+        }
+        
+        // 核心统计：基于dataRows计算各项指标，使用传入的总客户数计算剩余客户数量
+        function computeStatistics(dataRows, totalClientCount) {
+            // 逾期超120天客户 (逾期121-360+逾期361以上 > 0) 数量 + 金额
+            let over120CustCount = 0;
+            let over120TotalAmount = 0;
+            
+            // 电商客户: 清收措施包含"电商"
+            let ecommerceCount = 0;
+            // 已诉讼客户集合: 清收措施 = 诉讼已经结案 / 诉讼清收 / 破产重整 / 破产清算
+            const litigationSet = new Set(['诉讼已经结案', '诉讼清收', '破产重整', '破产清算']);
+            let litigationCustomers = [];
+            let lawsuitAmountSum = 0;
+            
+            // 拟诉讼(未立案)客户: 清收措施 === "诉讼资料收集中"
+            let pendingLawsuitCustomers = [];
+            // 已回款客户: 清收措施 === "已回款"
+            let repaidCount = 0;
+            
+            // 遍历所有数据行，统计各项指标（分类互斥）
+            for (let row of dataRows) {
+                const over121 = row.overdue121_360;
+                const over361 = row.overdue361_plus;
+                if (over121 + over361 > 0) {
+                    over120CustCount++;
+                    over120TotalAmount += (over121 + over361);
+                }
+                // 电商判定
+                if (row.collectionMeasure.includes('电商')) {
+                    ecommerceCount++;
+                }
+                // 已诉讼客户判定 (精确匹配四种)
+                if (litigationSet.has(row.collectionMeasure)) {
+                    litigationCustomers.push(row);
+                    const amt = extractAmountFromLitigation(row.litigationInfo);
+                    lawsuitAmountSum += amt;
+                }
+                // 拟诉讼（未立案）客户
+                if (row.collectionMeasure === '诉讼资料收集中') {
+                    pendingLawsuitCustomers.push(row);
+                }
+                // 已回款客户
+                if (row.collectionMeasure === '已回款') {
+                    repaidCount++;
+                }
+            }
+            
+            // 已判决定义: 在已诉讼客户中，排除 "仲裁/诉讼案件涉案金额..." 字段以 "买卖合同纠纷，一审，" 或 "买卖合同纠纷，二审，" 开头的行 (注意不要排除含有“审结”的行)
+            const judgedCustomers = litigationCustomers.filter(row => {
+                const info = row.litigationInfo;
+                if (!info) return true;
+                const trimmed = info.trim();
+                if (trimmed.startsWith('买卖合同纠纷，一审，') && !trimmed.includes('一审审结')) return false;
+                if (trimmed.startsWith('买卖合同纠纷，二审，') && !trimmed.includes('二审审结')) return false;
+                return true;
+            });
+            
+            // 支持金额 = 已判决客户的涉案金额求和
+            let supportAmount = 0;
+            for (let cust of judgedCustomers) {
+                supportAmount += extractAmountFromLitigation(cust.litigationInfo);
+            }
+            
+            // 拟诉讼金额合计
+            let pendingAmountSum = 0;
+            for (let cust of pendingLawsuitCustomers) {
+                pendingAmountSum += extractAmountFromLitigation(cust.litigationInfo);
+            }
+            
+            // 剩余客户数量 = 总客户数 - 电商客户 - 已诉讼客户 - 拟诉讼客户 - 已回款客户
+            const litigationCount = litigationCustomers.length;
+            const pendingCount = pendingLawsuitCustomers.length;
+            const remainingCount = totalClientCount - ecommerceCount - litigationCount - pendingCount - repaidCount;
+            
+            return {
+                over120CustCount,
+                over120TotalAmount,
+                ecommerceCount,
+                litigationCount,
+                lawsuitAmountSum,
+                judgedCount: judgedCustomers.length,
+                supportAmount,
+                pendingCount,
+                pendingAmountSum,
+                repaidCount,
+                remainingCount: remainingCount >= 0 ? remainingCount : 0,
+                totalCustomer: totalClientCount
+            };
+        }
+        
+        // 渲染完整报告 (含环比)
+        function renderReport(stats, totalOverdueAmt, totalCustCount, lastMonthCust, lastMonthAmt) {
+            if (!stats) {
+                analysisDiv.innerHTML = "⚠️ 暂无有效数据，请上传正确的Excel文件。";
+                return;
+            }
+            
+            const formatMoney = (val) => {
+                if (val === undefined || val === null) return "0.0";
+                return val.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+            };
+            const formatInt = (num) => num.toLocaleString('en-US');
+            
+            const currentAmt = totalOverdueAmt;
+            const currentCust = totalCustCount;
+            const custDiff = currentCust - lastMonthCust;
+            const amtDiff = currentAmt - lastMonthAmt;
+            const custDiffText = custDiff >= 0 ? `增加${Math.abs(custDiff)}家` : `减少${Math.abs(custDiff)}家`;
+            const amtDiffText = amtDiff >= 0 ? `增加${formatMoney(Math.abs(amtDiff))}万元` : `减少${formatMoney(Math.abs(amtDiff))}万元`;
+            
+            const reportHtml = `
+                <p>📌 逾期客户数量为<strong class="badge">${formatInt(currentCust)}家</strong>，逾期60天以上的逾期金额为<strong class="badge">${formatMoney(currentAmt)}万元</strong>（与上月逾期60天以上客户<strong>${formatInt(lastMonthCust)}家</strong>、逾期60天以上金额<strong>${formatMoney(lastMonthAmt)}万元</strong>相比，客户数量${custDiffText}，金额${amtDiffText}）；</p>
+                <p>📌 其中逾期超5万且超120天客户数量为<strong class="badge">${formatInt(stats.over120CustCount)}家</strong>，逾期超120天总金额为<strong class="badge">${formatMoney(stats.over120TotalAmount)}万元</strong>。</p>
+                <p>🛒 电商客户为<strong class="badge">${formatInt(stats.ecommerceCount)}家</strong>，已诉讼客户<strong class="badge">${formatInt(stats.litigationCount)}家</strong>，诉请金额<strong class="badge">${formatMoney(stats.lawsuitAmountSum)}万元</strong>；已判决<strong class="badge">${formatInt(stats.judgedCount)}家</strong>，支持金额<strong class="badge">${formatMoney(stats.supportAmount)}万元</strong>；拟诉讼（未立案）客户<strong class="badge">${formatInt(stats.pendingCount)}家</strong>，拟诉请金额<strong class="badge">${formatMoney(stats.pendingAmountSum)}万元</strong>；已回款客户<strong class="badge">${formatInt(stats.repaidCount)}家</strong>；剩余<strong class="badge">${formatInt(stats.remainingCount)}家</strong>客户事业部采取各种措施进行自行清收（包括但不限于电话、邮件、催款函或律师函等措施），预计可回款。</p>
+                <hr style="margin: 16px 0;">
+                <p style="font-size: 0.85rem; color: #5b8c5b;">※ 数据依据上传的《逾期账款明细表》实时运算，逾期超120天客户及金额均基于“逾期121-360天+逾期361天以上>0”定义；已判决口径剔除一审/二审未审结案件，保留审结及执行等。剩余客户 = 总客户数 - 电商 - 已诉讼 - 拟诉讼 - 已回款。</p>
+            `;
+            analysisDiv.innerHTML = reportHtml;
+        }
+        
+        // 主流程：解析并刷新展示
+        function loadAndAnalyze(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const parsed = parseExcelWorkbook(data);
+                    currentSheetData = parsed.dataRows;
+                    summaryRow = parsed.summary;
+                    totalOverdueAmount = parsed.totalOverdueAmt;
+                    totalCustomerCount = parsed.clientCount;
+                    
+                    // 计算所有统计指标，传入总客户数
+                    const stats = computeStatistics(currentSheetData, totalCustomerCount);
+                    let lastCust = parseFloat(lastMonthCustInput.value);
+                    let lastAmt = parseFloat(lastMonthAmtInput.value);
+                    if (isNaN(lastCust)) lastCust = 0;
+                    if (isNaN(lastAmt)) lastAmt = 0;
+                    
+                    renderReport(stats, totalOverdueAmount, totalCustomerCount, lastCust, lastAmt);
+                } catch (err) {
+                    console.error(err);
+                    analysisDiv.innerHTML = `<div class="error-msg">❌ 解析失败：${err.message || "文件格式不符或缺少必要列（序号、逾期分段、清收措施等）"}</div>`;
+                }
+            };
+            reader.onerror = function() {
+                analysisDiv.innerHTML = `<div class="error-msg">❌ 文件读取错误，请重试。</div>`;
+            };
+            reader.readAsArrayBuffer(file);
+        }
+        
+        // 文件上传交互
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            fileNameSpan.innerText = file.name;
+            loadAndAnalyze(file);
+        });
+        
+        // 手动刷新环比 (重新基于已有数据渲染)
+        refreshBtn.addEventListener('click', function() {
+            if (!currentSheetData || currentSheetData.length === 0) {
+                analysisDiv.innerHTML = `<div class="error-msg">⚠️ 尚未上传任何Excel，请先上传文件。</div>`;
+                return;
+            }
+            const stats = computeStatistics(currentSheetData, totalCustomerCount);
+            let lastCust = parseFloat(lastMonthCustInput.value);
+            let lastAmt = parseFloat(lastMonthAmtInput.value);
+            if (isNaN(lastCust)) lastCust = 0;
+            if (isNaN(lastAmt)) lastAmt = 0;
+            renderReport(stats, totalOverdueAmount, totalCustomerCount, lastCust, lastAmt);
+        });
+        
+        // 触发文件选择
+        document.querySelector('.file-label').addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        // 初始提示
+        analysisDiv.innerHTML = "📎 请点击「上传 Excel」按钮，选择长虹佳华逾期账款明细表（.xlsx），系统将自动生成逾期分析报告（含环比对比）。";
+    })();
+</script>
+</body>
+</html>

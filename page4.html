@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>诉讼费用统计分析系统 | 2025-2026年度</title>
+    <!-- SheetJS 核心库 -->
+    <script src="assets/vendor/js/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+        }
+        body {
+            background: #f0f4f8;
+            padding: 32px 24px;
+        }
+        /* 加载动画 */
+        .loader-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            visibility: hidden;
+            opacity: 0;
+            transition: 0.2s;
+        }
+        .loader-overlay.active {
+            visibility: visible;
+            opacity: 1;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 6px solid #ffffff;
+            border-top: 6px solid #2c7da0;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            background: rgba(0,0,0,0.3);
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* 主容器 */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 20px 35px -12px rgba(0,0,0,0.15);
+            overflow: hidden;
+            padding: 24px 28px 36px;
+        }
+        h1 {
+            font-size: 1.9rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #1e466e, #2a6f8f);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 6px;
+        }
+        .sub {
+            color: #5a6874;
+            border-left: 4px solid #2c7da0;
+            padding-left: 16px;
+            margin: 8px 0 24px 0;
+            font-size: 0.9rem;
+        }
+        /* 上传区域 */
+        .upload-area {
+            background: #f8fafc;
+            border: 2px dashed #b9d0e3;
+            border-radius: 24px;
+            padding: 20px 20px;
+            text-align: center;
+            margin-bottom: 36px;
+        }
+        .btn {
+            border: none;
+            padding: 10px 26px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: 0.2s;
+            background: #eef2f6;
+            color: #1f3b4c;
+        }
+        .btn-primary {
+            background: #2c7da0;
+            color: white;
+            box-shadow: 0 4px 8px rgba(44,125,160,0.2);
+        }
+        .btn-primary:hover {
+            background: #1f5e7a;
+            transform: translateY(-2px);
+        }
+        .btn-outline {
+            background: white;
+            border: 1px solid #cbdde9;
+            color: #2c7da0;
+        }
+        .btn-outline:hover {
+            background: #e6f2f8;
+            border-color: #2c7da0;
+        }
+        .btn-sm {
+            padding: 6px 16px;
+            font-size: 0.75rem;
+        }
+        .upload-btn-wrapper {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        /* 年度卡片公用样式 */
+        .year-card {
+            margin-top: 40px;
+            border-radius: 28px;
+            overflow: hidden;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+        }
+        .card-header {
+            padding: 16px 24px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        /* ========= 统一表格样式 (字体/边框/内边距/对齐) ========= */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            font-family: inherit;
+        }
+        .data-table th,
+        .data-table td {
+            padding: 12px 8px;
+            text-align: center;
+            vertical-align: middle;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .data-table th {
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            background-color: #eef2f6;  /* 默认，会被主题覆盖 */
+            color: #1f3b4c;
+        }
+        .data-table tbody tr:hover {
+            background-color: #f5f9ff !important;
+        }
+        /* 统一隔行变色基础 (透明，由主题背景色微调) */
+        .data-table tbody tr:nth-child(even) {
+            background-color: #fafcfe;
+        }
+        /* 2025主题 (蓝色系) 只改变表头、悬停和偶数行背景 */
+        .theme-2025 .card-header {
+            background: linear-gradient(98deg, #d9eaf3, #c2dfef);
+            color: #1a4c6e;
+            border-bottom: 2px solid #7fb4cf;
+        }
+        .theme-2025 .data-table th {
+            background-color: #3a8bb9;
+            color: white;
+        }
+        .theme-2025 .data-table tbody tr:hover {
+            background-color: #eef6fc !important;
+        }
+        .theme-2025 .data-table tbody tr:nth-child(even) {
+            background-color: #f9fdfe;
+        }
+        /* 2026主题 (绿色系) */
+        .theme-2026 .card-header {
+            background: linear-gradient(98deg, #d9f0e3, #c2e5d4);
+            color: #1a5e3f;
+            border-bottom: 2px solid #8fc9ae;
+        }
+        .theme-2026 .data-table th {
+            background-color: #2f9e68;
+            color: white;
+        }
+        .theme-2026 .data-table tbody tr:hover {
+            background-color: #effaf4 !important;
+        }
+        .theme-2026 .data-table tbody tr:nth-child(even) {
+            background-color: #f9fefb;
+        }
+        .table-wrapper {
+            overflow-x: auto;
+        }
+        .export-bar {
+            padding: 12px 20px;
+            background: #ffffffd9;
+            display: flex;
+            justify-content: flex-end;
+            border-top: 1px solid rgba(0,0,0,0.05);
+        }
+        .detail-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.75rem;
+            background: #e9ecef;
+            padding: 4px 12px;
+            border-radius: 20px;
+            transition: 0.1s;
+        }
+        .detail-btn:hover {
+            background: #cbdae6;
+        }
+        footer {
+            text-align: center;
+            margin-top: 48px;
+            color: #7f8c8d;
+            font-size: 0.75rem;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 20px;
+        }
+        .status-msg {
+            font-size: 0.8rem;
+            margin-top: 12px;
+            color: #2c7da0;
+        }
+        @media (max-width: 760px) {
+            .container {
+                padding: 16px;
+            }
+            .data-table th, .data-table td {
+                padding: 8px 4px;
+                font-size: 0.7rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="loader-overlay" id="loaderOverlay">
+    <div class="spinner"></div>
+</div>
+<div class="container">
+    <h1>📊 诉讼费用智能统计看板</h1>
+    <div class="sub">基于“在诉&执行” + “已结”双表数据 | 按费用大类、年度精准汇总 | 支持明细导出</div>
+
+    <div class="upload-area">
+        <div class="upload-btn-wrapper">
+            <button class="btn btn-primary" id="uploadBtn">📂 上传报表 (Excel)</button>
+            <span style="color:#4b6b82;">请上传《诉讼费用统计表2025.xlsx》或同结构文件</span>
+        </div>
+        <div class="status-msg" id="statusMsg">⚡ 等待上传文件，自动解析2025&2026数据</div>
+    </div>
+
+    <!-- 2025年度卡片 -->
+    <div id="year2025Container" class="year-card theme-2025" style="display: none;">
+        <div class="card-header">
+            <span>📆 2025年度 诉讼费用汇总表</span>
+            <button class="btn btn-outline btn-sm" id="export2025SummaryBtn">📎 导出汇总表 (2025)</button>
+        </div>
+        <div class="table-wrapper">
+            <table class="data-table" id="summaryTable2025">
+                <thead>
+                    <tr><th>费用大类</th><th>借款/报销合计(元)</th><th>实销金额合计(元)</th><th>收回金额合计(元)</th><th>操作</th></tr>
+                </thead>
+                <tbody id="summaryTbody2025"></tbody>
+            </table>
+        </div>
+        <div class="export-bar"><span style="font-size:0.7rem;">💡 点击每行「导出明细」下载该类别详细清单</span></div>
+    </div>
+
+    <!-- 2026年度卡片 -->
+    <div id="year2026Container" class="year-card theme-2026" style="display: none;">
+        <div class="card-header">
+            <span>📅 2026年度 诉讼费用汇总表</span>
+            <button class="btn btn-outline btn-sm" id="export2026SummaryBtn">📎 导出汇总表 (2026)</button>
+        </div>
+        <div class="table-wrapper">
+            <table class="data-table" id="summaryTable2026">
+                <thead>
+                    <tr><th>费用大类</th><th>借款/报销合计(元)</th><th>实销金额合计(元)</th><th>收回金额合计(元)</th><th>操作</th></tr>
+                </thead>
+                <tbody id="summaryTbody2026"></tbody>
+            </table>
+        </div>
+        <div class="export-bar"><span style="font-size:0.7rem;">💡 点击每行「导出明细」下载该类别详细清单</span></div>
+    </div>
+    <footer>数据依据「诉讼费、律师费、保全费、公告费、差旅费、保函费、其他」大类统计，打款日期在2025/2026年内。明细包含诉讼单位、日期、小类、律师、是否核销等字段。</footer>
+</div>
+
+<script>
+    // 需要统计的费用大类
+    const CATEGORIES = ["诉讼费", "其他", "律师费", "公告费", "差旅费", "保全费", "保函费"];
+    
+    // 存储统计结果: {2025: { 类别: {totalLoan, totalActual, totalRecover, details[] } }, 2026: {...}}
+    let currentStats = {2025: {}, 2026: {}};
+    
+    function initYearStats() {
+        const stats = {2025: {}, 2026: {}};
+        for(let y of [2025,2026]) {
+            for(let cat of CATEGORIES) {
+                stats[y][cat] = {
+                    totalLoan: 0,
+                    totalActual: 0,
+                    totalRecover: 0,
+                    details: []
+                };
+            }
+        }
+        return stats;
+    }
+    
+    // 安全转数字
+    function toNumber(val) {
+        if (val === undefined || val === null || val === "") return 0;
+        if (typeof val === 'number') return val;
+        let str = String(val).trim();
+        str = str.replace(/,/g, '');
+        let num = parseFloat(str);
+        return isNaN(num) ? 0 : num;
+    }
+    
+    // 从单元格提取年份
+    function getYearFromDate(cellValue) {
+        if (!cellValue) return null;
+        let raw = String(cellValue).trim();
+        let match = raw.match(/(\d{4})[-/]/);
+        if (match) return parseInt(match[1]);
+        // Excel 序列号
+        if (typeof cellValue === 'number' && cellValue > 40000 && cellValue < 50000) {
+            let date = new Date((cellValue - 25569) * 86400000);
+            return date.getFullYear();
+        }
+        let d = new Date(raw);
+        if (!isNaN(d.getTime())) return d.getFullYear();
+        return null;
+    }
+    
+    // 动态获取表头列索引 (兼容多个sheet)
+    function getColumnIndices(sheet) {
+        if (!sheet || !sheet['!ref']) return null;
+        const range = XLSX.utils.decode_range(sheet['!ref']);
+        const headersRow = range.s.r;
+        const headers = [];
+        for (let C = range.s.c; C <= range.e.c; C++) {
+            const addr = XLSX.utils.encode_cell({ r: headersRow, c: C });
+            const cell = sheet[addr];
+            const val = cell ? (cell.v !== undefined ? cell.v : (cell.w || '')) : '';
+            headers[C] = String(val).trim();
+        }
+        const idx = {
+            colUnit: null, colPayDate: null, colCategory: null, colSub: null,
+            colLoan: null, colActual: null, colLawyer: null, colIsWriteOff: null, colRecover: null
+        };
+        for (let C in headers) {
+            let h = headers[C];
+            if (!h) continue;
+            if (h.includes('诉讼单位') || h === '诉讼单位') idx.colUnit = parseInt(C);
+            else if (h.includes('打款日期') || h === '打款日期') idx.colPayDate = parseInt(C);
+            else if (h.includes('费用大类') || h === '费用大类') idx.colCategory = parseInt(C);
+            else if (h.includes('费用小类') || h === '费用小类') idx.colSub = parseInt(C);
+            else if (h.includes('借款/报销金额') || h === '借款/报销金额') idx.colLoan = parseInt(C);
+            else if (h.includes('实销金额') || h === '实销金额') idx.colActual = parseInt(C);
+            else if (h.includes('律师') || h === '律师') idx.colLawyer = parseInt(C);
+            else if (h.includes('是否核销') || h === '是否核销' || h === '是否核销（报销）') idx.colIsWriteOff = parseInt(C);
+            else if (h.includes('收回金额') || h === '收回金额') idx.colRecover = parseInt(C);
+        }
+        if (idx.colPayDate === null || idx.colCategory === null) return null;
+        return idx;
+    }
+    
+    // 解析单个sheet并累加至 currentStats
+    function parseSheetToStats(sheet, indices) {
+        if (!sheet || !indices) return;
+        const range = XLSX.utils.decode_range(sheet['!ref']);
+        const startRow = range.s.r + 1;
+        const endRow = range.e.r;
+        for (let row = startRow; row <= endRow; row++) {
+            const getCell = (col) => {
+                if (col === undefined || col === null) return null;
+                const addr = XLSX.utils.encode_cell({ r: row, c: col });
+                const cell = sheet[addr];
+                return cell ? (cell.v !== undefined ? cell.v : (cell.w || '')) : null;
+            };
+            const payDateVal = getCell(indices.colPayDate);
+            if (!payDateVal) continue;
+            const year = getYearFromDate(payDateVal);
+            if (year !== 2025 && year !== 2026) continue;
+            
+            let categoryRaw = getCell(indices.colCategory);
+            let category = categoryRaw ? String(categoryRaw).trim() : '';
+            if (!CATEGORIES.includes(category)) continue;
+            
+            const loanVal = toNumber(getCell(indices.colLoan));
+            const actualVal = toNumber(getCell(indices.colActual));
+            const recoverVal = toNumber(getCell(indices.colRecover));
+            const unit = getCell(indices.colUnit) || '';
+            const subCategory = getCell(indices.colSub) || '';
+            const lawyer = getCell(indices.colLawyer) || '';
+            let isWriteOff = getCell(indices.colIsWriteOff);
+            if (isWriteOff === undefined || isWriteOff === null) isWriteOff = '';
+            else isWriteOff = String(isWriteOff);
+            
+            const detailItem = {
+                诉讼单位: unit,
+                打款日期: payDateVal,
+                费用大类: category,
+                费用小类: subCategory,
+                借款报销金额: loanVal,
+                实销金额: actualVal,
+                律师: lawyer,
+                是否核销: isWriteOff,
+                收回金额: recoverVal
+            };
+            const target = currentStats[year][category];
+            target.totalLoan += loanVal;
+            target.totalActual += actualVal;
+            target.totalRecover += recoverVal;
+            target.details.push(detailItem);
+        }
+    }
+    
+    // 主解析函数: 读取 workbook 中 "在诉&执行" 和 "已结" sheet
+    async function parseWorkbook(dataBuffer) {
+        const workbook = XLSX.read(dataBuffer, { type: 'array', cellFormula: false, cellText: true });
+        const sheetNames = workbook.SheetNames;
+        let targetSheets = [];
+        for (let name of sheetNames) {
+            let lower = name.toLowerCase();
+            if (lower.includes('在诉') || lower.includes('执行') || lower === '在诉&执行') targetSheets.push(workbook.Sheets[name]);
+            else if (lower.includes('已结') || lower === '已结') targetSheets.push(workbook.Sheets[name]);
+        }
+        if (targetSheets.length === 0) {
+            // 如果未找到典型sheet，则使用所有sheet（避免遗漏自定义名称）
+            for (let name of sheetNames) targetSheets.push(workbook.Sheets[name]);
+        }
+        // 重置全局统计
+        currentStats = initYearStats();
+        for (let sheet of targetSheets) {
+            const indices = getColumnIndices(sheet);
+            if (indices) parseSheetToStats(sheet, indices);
+        }
+        renderTables();
+    }
+    
+    // 渲染两个年度的汇总表格 (使用统一的表格样式类 data-table)
+    function renderTables() {
+        const container2025 = document.getElementById('year2025Container');
+        const container2026 = document.getElementById('year2026Container');
+        const tbody2025 = document.getElementById('summaryTbody2025');
+        const tbody2026 = document.getElementById('summaryTbody2026');
+        tbody2025.innerHTML = '';
+        tbody2026.innerHTML = '';
+        
+        let has2025 = false, has2026 = false;
+        for (let cat of CATEGORIES) {
+            const data2025 = currentStats[2025][cat];
+            if (data2025 && (data2025.totalLoan !==0 || data2025.totalActual !==0 || data2025.totalRecover !==0 || data2025.details.length>0)) {
+                has2025 = true;
+                const row = buildSummaryRow(cat, data2025, 2025);
+                tbody2025.appendChild(row);
+            }
+            const data2026 = currentStats[2026][cat];
+            if (data2026 && (data2026.totalLoan !==0 || data2026.totalActual !==0 || data2026.totalRecover !==0 || data2026.details.length>0)) {
+                has2026 = true;
+                const row = buildSummaryRow(cat, data2026, 2026);
+                tbody2026.appendChild(row);
+            }
+        }
+        if (!has2025) {
+            tbody2025.innerHTML = '<tr><td colspan="5" style="text-align:center;">暂无2025年符合统计的数据，请确认上传文件包含打款日期在2025年且费用大类匹配</td></tr>';
+        }
+        if (!has2026) {
+            tbody2026.innerHTML = '<tr><td colspan="5" style="text-align:center;">暂无2026年符合统计的数据</td></tr>';
+        }
+        container2025.style.display = 'block';
+        container2026.style.display = 'block';
+    }
+    
+    // 构建汇总行 (复用统一的样式)
+    function buildSummaryRow(category, data, year) {
+        const tr = document.createElement('tr');
+        const tdCat = document.createElement('td'); tdCat.innerText = category; tdCat.style.fontWeight = '500';
+        const tdLoan = document.createElement('td'); tdLoan.innerText = data.totalLoan.toFixed(2);
+        const tdActual = document.createElement('td'); tdActual.innerText = data.totalActual.toFixed(2);
+        const tdRecover = document.createElement('td'); tdRecover.innerText = data.totalRecover.toFixed(2);
+        const tdAction = document.createElement('td');
+        const btn = document.createElement('button');
+        btn.innerText = '📋 导出明细';
+        btn.className = 'detail-btn';
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            exportDetailSheet(year, category, data.details);
+        });
+        tdAction.appendChild(btn);
+        tr.appendChild(tdCat);
+        tr.appendChild(tdLoan);
+        tr.appendChild(tdActual);
+        tr.appendChild(tdRecover);
+        tr.appendChild(tdAction);
+        return tr;
+    }
+    
+    // 导出明细Excel (符合字段要求)
+    function exportDetailSheet(year, category, detailsList) {
+        if (!detailsList.length) {
+            alert(`${year}年-${category} 无明细数据可导出`);
+            return;
+        }
+        const exportData = detailsList.map(item => ({
+            '诉讼单位': item.诉讼单位,
+            '打款日期': item.打款日期,
+            '费用大类': item.费用大类,
+            '费用小类': item.费用小类,
+            '借款/报销金额': item.借款报销金额,
+            '实销金额': item.实销金额,
+            '律师': item.律师,
+            '是否核销': item.是否核销,
+            '收回金额': item.收回金额
+        }));
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, `${category}_明细`);
+        const fileName = `${year}年_${category}_明细表.xlsx`;
+        XLSX.writeFile(wb, fileName);
+    }
+    
+    // 导出年度汇总表（按费用大类的合计）
+    function exportYearSummary(year) {
+        const summaryRows = [];
+        for (let cat of CATEGORIES) {
+            const data = currentStats[year][cat];
+            if (data && (data.totalLoan !==0 || data.totalActual !==0 || data.totalRecover !==0 || data.details.length>0)) {
+                summaryRows.push({
+                    '费用大类': cat,
+                    '借款/报销合计(元)': data.totalLoan.toFixed(2),
+                    '实销金额合计(元)': data.totalActual.toFixed(2),
+                    '收回金额合计(元)': data.totalRecover.toFixed(2),
+                    '明细记录条数': data.details.length
+                });
+            }
+        }
+        if (summaryRows.length === 0) {
+            alert(`${year}年无统计数据，无法导出汇总表`);
+            return;
+        }
+        const ws = XLSX.utils.json_to_sheet(summaryRows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, `${year}汇总`);
+        const fileName = `${year}年度诉讼费用统计表.xlsx`;
+        XLSX.writeFile(wb, fileName);
+    }
+    
+    // ========== UI 交互 ==========
+    const uploadBtn = document.getElementById('uploadBtn');
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.xlsx, .xls';
+    fileInput.style.display = 'none';
+    document.body.appendChild(fileInput);
+    
+    uploadBtn.addEventListener('click', () => fileInput.click());
+    
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const loader = document.getElementById('loaderOverlay');
+        loader.classList.add('active');
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            try {
+                const data = new Uint8Array(evt.target.result);
+                parseWorkbook(data);
+                document.getElementById('statusMsg').innerHTML = `✅ 解析成功！已统计 ${new Date().toLocaleTimeString()}  | 文件: ${file.name}`;
+            } catch (err) {
+                console.error(err);
+                document.getElementById('statusMsg').innerHTML = `❌ 解析失败，请检查文件格式: ${err.message}`;
+                alert('解析Excel出错，请确认表格列名包含「打款日期」「费用大类」等关键字段');
+            } finally {
+                loader.classList.remove('active');
+                fileInput.value = '';
+            }
+        };
+        reader.onerror = () => {
+            loader.classList.remove('active');
+            alert('文件读取失败');
+        };
+        reader.readAsArrayBuffer(file);
+    });
+    
+    // 绑定汇总表导出按钮
+    document.getElementById('export2025SummaryBtn').addEventListener('click', () => exportYearSummary(2025));
+    document.getElementById('export2026SummaryBtn').addEventListener('click', () => exportYearSummary(2026));
+    
+    // 初始隐藏卡片
+    window.onload = () => {
+        document.getElementById('year2025Container').style.display = 'none';
+        document.getElementById('year2026Container').style.display = 'none';
+    };
+</script>
+</body>
+</html>
