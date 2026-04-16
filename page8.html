@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>小刘的差旅费计算器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(145deg, #eaf7e6 0%, #d4ecd0 100%);
+            min-height: 100vh;
+            padding: 2rem 1.5rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 主卡片 */
+        .card {
+            max-width: 1100px;
+            width: 100%;
+            background: white;
+            border-radius: 2rem;
+            box-shadow: 0 20px 35px -12px rgba(0, 32, 0, 0.25);
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+
+        /* 头部绿色区域 */
+        .header {
+            background: #1e6f3f;
+            padding: 1.8rem 2rem;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .header h1:before {
+            content: "✈️";
+            font-size: 1.8rem;
+        }
+
+        .sub {
+            font-size: 0.9rem;
+            margin-top: 0.6rem;
+            opacity: 0.85;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+        }
+
+        .badge {
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(2px);
+            padding: 0.3rem 1rem;
+            border-radius: 60px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        /* 内容区 */
+        .content {
+            padding: 1.8rem 2rem 2rem 2rem;
+        }
+
+        /* 表格样式 (flex布局模拟卡片列表) */
+        .expense-table {
+            width: 100%;
+            border-radius: 1.2rem;
+            background: #fefef7;
+            border: 1px solid #d9e6d4;
+            overflow: hidden;
+            margin-bottom: 1.8rem;
+        }
+
+        .table-header {
+            display: grid;
+            grid-template-columns: 2fr 1.2fr 0.6fr;
+            background: #eef5ea;
+            padding: 0.9rem 1.2rem;
+            font-weight: 700;
+            color: #1e4620;
+            border-bottom: 2px solid #c8e0c1;
+            font-size: 0.9rem;
+        }
+
+        .expense-row {
+            display: grid;
+            grid-template-columns: 2fr 1.2fr 0.6fr;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.8rem 1.2rem;
+            border-bottom: 1px solid #e2f0de;
+            transition: background 0.15s;
+        }
+
+        .expense-row:hover {
+            background: #f9fff7;
+        }
+
+        /* 控件样式 */
+        .expense-type {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            border-radius: 1.2rem;
+            border: 1px solid #c0ddb5;
+            background: white;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #1a3a1a;
+            cursor: pointer;
+            transition: 0.2s;
+            outline: none;
+        }
+
+        .expense-type:focus {
+            border-color: #2e8b57;
+            box-shadow: 0 0 0 3px rgba(46, 139, 86, 0.2);
+        }
+
+        .amount-input {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            border-radius: 1.2rem;
+            border: 1px solid #c0ddb5;
+            background: white;
+            font-size: 0.95rem;
+            font-weight: 500;
+            text-align: right;
+            transition: 0.2s;
+            outline: none;
+        }
+
+        .amount-input:focus {
+            border-color: #2e8b57;
+            box-shadow: 0 0 0 3px rgba(46, 139, 86, 0.2);
+        }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            font-size: 1.25rem;
+            cursor: pointer;
+            color: #a55a4a;
+            background: #ffeeea;
+            width: 36px;
+            height: 36px;
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            font-weight: bold;
+            margin-left: auto;
+            margin-right: 0;
+        }
+
+        .delete-btn:hover {
+            background: #f5cfc7;
+            color: #b13e28;
+            transform: scale(1.02);
+        }
+
+        /* 底部汇总栏 */
+        .summary {
+            background: #eff7ec;
+            border-radius: 1.4rem;
+            padding: 1.2rem 1.6rem;
+            margin: 1rem 0 1.5rem 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            border: 1px solid #cee5c6;
+        }
+
+        .total-box {
+            background: white;
+            padding: 0.6rem 1.6rem;
+            border-radius: 3rem;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        }
+
+        .total-label {
+            font-size: 0.85rem;
+            color: #2f6b3a;
+            letter-spacing: 1px;
+        }
+
+        .total-amount {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #1a5e38;
+            line-height: 1.2;
+        }
+
+        .total-amount small {
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .count-info {
+            background: white;
+            padding: 0.4rem 1.2rem;
+            border-radius: 40px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #1f5e33;
+        }
+
+        /* 按钮组 */
+        .action-buttons {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-add {
+            background: #2a7f49;
+            border: none;
+            padding: 0.8rem 1.6rem;
+            border-radius: 3rem;
+            font-weight: 700;
+            font-size: 1rem;
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+
+        .btn-add:hover {
+            background: #1e6f3f;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 18px rgba(30, 111, 63, 0.3);
+        }
+
+        .limit-hint {
+            font-size: 0.75rem;
+            color: #558b4a;
+            background: #eef5ea;
+            padding: 0.4rem 1rem;
+            border-radius: 30px;
+        }
+
+        footer {
+            margin-top: 1rem;
+            text-align: center;
+            font-size: 0.7rem;
+            color: #6c9665;
+            border-top: 1px solid #e0f0db;
+            padding-top: 1.2rem;
+        }
+
+        @media (max-width: 650px) {
+            body {
+                padding: 1rem;
+            }
+            .content {
+                padding: 1.2rem;
+            }
+            .table-header, .expense-row {
+                grid-template-columns: 1.8fr 1.2fr 0.6fr;
+                gap: 0.3rem;
+                padding: 0.6rem 0.8rem;
+            }
+            .total-amount {
+                font-size: 1.5rem;
+            }
+            .btn-add {
+                padding: 0.6rem 1.2rem;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="header">
+        <h1>差旅费用计算器</h1>
+        <div class="sub">
+            <span>📋 火车票·机票·住宿·打车·过路费·其他</span>
+            <span class="badge">小刘的差旅计算器</span>
+        </div>
+    </div>
+
+    <div class="content">
+        <!-- 费用明细表头 -->
+        <div class="expense-table">
+            <div class="table-header">
+                <span>📌 费用类型</span>
+                <span>💰 金额 (¥)</span>
+                <span style="text-align: center;">🗑️ 操作</span>
+            </div>
+            <div id="expense-list-container">
+                <!-- 动态行会渲染在这里 -->
+            </div>
+        </div>
+
+        <!-- 汇总区域 -->
+        <div class="summary">
+            <div class="total-box">
+                <div class="total-label">合计金额</div>
+                <div class="total-amount">
+                    ¥ <span id="total-sum">0.00</span>
+                </div>
+            </div>
+            <div class="count-info" id="expense-count-info">
+                当前支出: 0 笔
+            </div>
+        </div>
+
+        <!-- 操作区 -->
+        <div class="action-buttons">
+            <button class="btn-add" id="add-row-btn">➕ 增加一行</button>
+            <div class="limit-hint" id="limit-tip">✨ 无笔数限制，随意增减，自动求和</div>
+        </div>
+        <footer>
+            💡 提示：点击“增加一行”添加新费用，每笔金额自动合计；删除无限制，金额默认可不填（按0处理）。
+        </footer>
+    </div>
+</div>
+
+<script>
+    // ---------- 费用类型选项 ----------
+    const EXPENSE_TYPES = [
+        "火车票",
+        "飞机票",
+        "住宿费",
+        "打车费",
+        "过路费",
+        "其他"
+    ];
+
+    // ---------- 初始数据 (基础显示火车票2项、住宿费1项，金额为空字符串，不显示预设金额) ----------
+    let expenseData = [
+        { type: "火车票", amount: "" },   // 空金额，代表未输入
+        { type: "火车票", amount: "" },
+        { type: "住宿费", amount: "" }
+    ];
+
+    // DOM 元素
+    const container = document.getElementById("expense-list-container");
+    const totalSpan = document.getElementById("total-sum");
+    const expenseCountSpan = document.getElementById("expense-count-info");
+    const addBtn = document.getElementById("add-row-btn");
+
+    // 辅助函数：将任意金额值转换为数字（处理空字符串、null、NaN）
+    function parseAmountValue(value) {
+        if (value === "" || value === null || value === undefined) return 0;
+        const num = parseFloat(value);
+        return isNaN(num) ? 0 : num;
+    }
+
+    // 更新总计显示 & 笔数显示（无任何限制）
+    function updateTotalAndCount() {
+        let total = 0;
+        for (let i = 0; i < expenseData.length; i++) {
+            const amt = expenseData[i].amount;
+            total += parseAmountValue(amt);
+        }
+        totalSpan.innerText = total.toFixed(2);
+        const count = expenseData.length;
+        expenseCountSpan.innerText = `当前支出: ${count} 笔`;
+    }
+
+    // 渲染整个列表 (每次增删改后调用，保证数据同步)
+    function renderExpenseList() {
+        if (!container) return;
+        container.innerHTML = '';
+        
+        // 如果没有费用条目，显示占位提示行（但通常不会，因为可以删到0行）
+        if (expenseData.length === 0) {
+            const emptyRow = document.createElement('div');
+            emptyRow.className = 'expense-row';
+            emptyRow.style.justifyContent = 'center';
+            emptyRow.style.color = '#8fbc8f';
+            emptyRow.style.gridTemplateColumns = '1fr';
+            emptyRow.style.textAlign = 'center';
+            emptyRow.innerText = '暂无费用，点击“增加一行”添加支出';
+            container.appendChild(emptyRow);
+            updateTotalAndCount();
+            return;
+        }
+
+        // 循环构建每一行
+        expenseData.forEach((item, idx) => {
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'expense-row';
+            rowDiv.setAttribute('data-index', idx);
+
+            // 费用类型下拉菜单
+            const selectWrapper = document.createElement('div');
+            const selectEl = document.createElement('select');
+            selectEl.className = 'expense-type';
+            // 填充选项
+            EXPENSE_TYPES.forEach(typeOption => {
+                const option = document.createElement('option');
+                option.value = typeOption;
+                option.textContent = typeOption;
+                if (item.type === typeOption) {
+                    option.selected = true;
+                }
+                selectEl.appendChild(option);
+            });
+            // 监听类型变化
+            selectEl.addEventListener('change', (e) => {
+                expenseData[idx].type = e.target.value;
+                // 仅更新数据，不需要重新渲染（避免丢失焦点）
+            });
+            selectWrapper.appendChild(selectEl);
+
+            // 金额输入框 - 不显示预设金额（显示空白或0.00，初始为空字符串则显示空白）
+            const amountWrapper = document.createElement('div');
+            const amountInput = document.createElement('input');
+            amountInput.type = 'number';
+            amountInput.step = '0.01';
+            amountInput.min = '0';
+            amountInput.placeholder = '0.00';   // 占位提示，不是预设值
+            amountInput.className = 'amount-input';
+            // 如果amount是空字符串或无效，设置value为空字符串；否则显示数字（保留两位小数）
+            if (item.amount === "" || item.amount === null || item.amount === undefined) {
+                amountInput.value = "";
+            } else {
+                const numVal = parseAmountValue(item.amount);
+                amountInput.value = numVal.toFixed(2);
+            }
+            
+            // 实时监听金额变化（input事件）
+            amountInput.addEventListener('input', (e) => {
+                let rawValue = e.target.value;
+                // 如果用户清空输入框，存储为空字符串
+                if (rawValue === "") {
+                    expenseData[idx].amount = "";
+                    updateTotalAndCount();
+                    return;
+                }
+                let numValue = parseFloat(rawValue);
+                if (isNaN(numValue)) {
+                    // 输入无效字符时暂时保持原数据，但为了方便清空效果，依然存空字符串
+                    expenseData[idx].amount = "";
+                    amountInput.value = "";
+                } else {
+                    expenseData[idx].amount = numValue;
+                }
+                updateTotalAndCount();
+            });
+            
+            // 失焦时格式化金额（如果值为数字则保留两位小数，为空则保持空）
+            amountInput.addEventListener('blur', (e) => {
+                let currentVal = expenseData[idx].amount;
+                if (currentVal === "" || currentVal === null || currentVal === undefined) {
+                    amountInput.value = "";
+                    return;
+                }
+                const num = parseAmountValue(currentVal);
+                if (num === 0 && currentVal !== 0 && currentVal !== "0") {
+                    // 若原本为空字符串导致为零，但实际应该显示空
+                    if (expenseData[idx].amount === "") {
+                        amountInput.value = "";
+                        return;
+                    }
+                }
+                // 格式化显示为两位小数
+                amountInput.value = num.toFixed(2);
+                // 同时同步数据存储为数字
+                expenseData[idx].amount = num;
+                updateTotalAndCount();
+            });
+            amountWrapper.appendChild(amountInput);
+
+            // 删除按钮 - 无任何限制，始终可点
+            const delWrapper = document.createElement('div');
+            const delBtn = document.createElement('button');
+            delBtn.textContent = '✖';
+            delBtn.className = 'delete-btn';
+            delBtn.setAttribute('aria-label', '删除此项');
+            delBtn.title = '删除此项';
+            delBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // 直接删除当前行，无最少行数限制
+                expenseData.splice(idx, 1);
+                // 重新渲染列表
+                renderExpenseList();
+                updateTotalAndCount();
+            });
+            delWrapper.appendChild(delBtn);
+
+            rowDiv.appendChild(selectWrapper);
+            rowDiv.appendChild(amountWrapper);
+            rowDiv.appendChild(delWrapper);
+            container.appendChild(rowDiv);
+        });
+
+        // 渲染完成后更新总计和笔数
+        updateTotalAndCount();
+    }
+
+    // 增加新行 - 无最大行数限制
+    function addNewRow() {
+        // 添加默认类型“火车票”，金额为空字符串（不显示预设金额）
+        expenseData.push({
+            type: "火车票",
+            amount: ""
+        });
+        // 重新渲染列表
+        renderExpenseList();
+        updateTotalAndCount();
+    }
+
+    // 初始化页面
+    function init() {
+        renderExpenseList();
+        updateTotalAndCount();
+        // 绑定增加按钮事件
+        if (addBtn) {
+            addBtn.removeEventListener('click', addNewRow);
+            addBtn.addEventListener('click', addNewRow);
+        }
+        // 控制台输出初始状态（仅用于调试，无功能影响）
+        console.log("初始化完成，初始显示火车票2项、住宿费1项，金额为空，无笔数限制");
+    }
+
+    // 页面加载启动
+    window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

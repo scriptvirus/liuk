@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>批量文本替换工具</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+        }
+
+        body {
+            background-color: #f5f7fa;
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 24px;
+        }
+
+        .section {
+            margin-bottom: 25px;
+        }
+
+        .section label {
+            display: block;
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            resize: vertical;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        /* 替换规则区域 */
+        .rules-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .rule-buttons button {
+            margin-left: 8px;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            background-color: #409eff;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .rule-buttons button:hover {
+            opacity: 0.9;
+        }
+
+        .rule-buttons button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* 替换规则输入组 */
+        .rules-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .rule-item {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .rule-item input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .rule-item span {
+            color: #666;
+            font-weight: bold;
+        }
+
+        /* 替换按钮 */
+        .replace-btn {
+            display: block;
+            width: 200px;
+            height: 45px;
+            margin: 30px auto 0;
+            background-color: #67c23a;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .replace-btn:hover {
+            background-color: #5eb833;
+        }
+
+        /* 输出区域只读样式 */
+        #outputText {
+            background-color: #fafafa;
+            cursor: default;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>批量文本替换工具</h1>
+
+        <!-- 原始文档输入区 -->
+        <div class="section">
+            <label for="originalText">📄 原始文档（粘贴需要替换的文本）</label>
+            <textarea id="originalText" placeholder="请在这里粘贴原始文档内容..."></textarea>
+        </div>
+
+        <!-- 替换规则区域 -->
+        <div class="section">
+            <div class="rules-header">
+                <label>🔄 替换规则（原始文字 → 替换文字）</label>
+                <div class="rule-buttons">
+                    <button id="addRule">+ 新增规则</button>
+                    <button id="removeRule">- 删除规则</button>
+                </div>
+            </div>
+            <div id="rulesContainer" class="rules-container">
+                <!-- 默认3组替换规则 -->
+                <div class="rule-item">
+                    <input type="text" class="original-word" placeholder="输入要被替换的原始文字" value="四川长虹佳华信息产品有限责任公司">
+                    <span>→</span>
+                    <input type="text" class="replace-word" placeholder="输入替换后的文字" value="我司">
+                </div>
+                <div class="rule-item">
+                    <input type="text" class="original-word" placeholder="输入要被替换的原始文字" value="四川长虹佳华数字技术有限公司">
+                    <span>→</span>
+                    <input type="text" class="replace-word" placeholder="输入替换后的文字" value="我司">
+                </div>
+                <div class="rule-item">
+                    <input type="text" class="original-word" placeholder="输入要被替换的原始文字" value="四川长虹佳华哆啦有货电子商务有限公司">
+                    <span>→</span>
+                    <input type="text" class="replace-word" placeholder="输入替换后的文字" value="我司">
+                </div>
+            </div>
+        </div>
+
+        <!-- 替换结果输出区 -->
+        <div class="section">
+            <label for="outputText">✅ 替换结果（自动生成，可复制）</label>
+            <textarea id="outputText" readonly placeholder="替换后的文本将显示在这里..."></textarea>
+        </div>
+
+        <!-- 替换按钮 -->
+        <button class="replace-btn" id="replaceBtn">立即执行替换</button>
+    </div>
+
+    <script>
+        // 获取DOM元素
+        const addRuleBtn = document.getElementById('addRule');
+        const removeRuleBtn = document.getElementById('removeRule');
+        const rulesContainer = document.getElementById('rulesContainer');
+        const replaceBtn = document.getElementById('replaceBtn');
+        const originalText = document.getElementById('originalText');
+        const outputText = document.getElementById('outputText');
+
+        // 最大规则数、当前规则数（默认3个）
+        const MAX_RULES = 10;
+        let currentRules = 3;
+
+        // 新增替换规则
+        addRuleBtn.addEventListener('click', () => {
+            if (currentRules < MAX_RULES) {
+                currentRules++;
+                // 创建新的规则输入组
+                const ruleItem = document.createElement('div');
+                ruleItem.className = 'rule-item';
+                ruleItem.innerHTML = `
+                    <input type="text" class="original-word" placeholder="输入要被替换的原始文字">
+                    <span>→</span>
+                    <input type="text" class="replace-word" placeholder="输入替换后的文字">
+                `;
+                rulesContainer.appendChild(ruleItem);
+                // 更新按钮状态
+                updateButtonStatus();
+            }
+        });
+
+        // 删除替换规则
+        removeRuleBtn.addEventListener('click', () => {
+            if (currentRules > 1) {
+                currentRules--;
+                rulesContainer.removeChild(rulesContainer.lastChild);
+                updateButtonStatus();
+            }
+        });
+
+        // 更新按钮禁用状态
+        function updateButtonStatus() {
+            addRuleBtn.disabled = currentRules >= MAX_RULES;
+            removeRuleBtn.disabled = currentRules <= 1;
+        }
+
+        // 替换英文标点为中文标点（分号、前后括号）
+        function replacePunctuation(text) {
+            // 英文分号(;) → 中文分号(；)
+            text = text.replace(/;/g, '；');
+            // 英文左括号(() → 中文左括号（）
+            text = text.replace(/\(/g, '（');
+            // 英文右括号()) → 中文右括号）
+            text = text.replace(/\)/g, '）');
+            return text;
+        }
+
+        // 执行批量替换
+        replaceBtn.addEventListener('click', () => {
+            // 获取原始文本并先替换标点
+            let text = originalText.value;
+            // 第一步：替换标点符号
+            text = replacePunctuation(text);
+            
+            // 第二步：执行自定义替换规则
+            const originalWords = document.querySelectorAll('.original-word');
+            const replaceWords = document.querySelectorAll('.replace-word');
+
+            // 遍历所有规则，批量全局替换
+            for (let i = 0; i < currentRules; i++) {
+                const oldStr = originalWords[i].value.trim();
+                const newStr = replaceWords[i].value.trim();
+                if (oldStr) {
+                    // 全局替换（替换所有匹配项）
+                    const reg = new RegExp(oldStr, 'g');
+                    text = text.replace(reg, newStr);
+                }
+            }
+
+            // 输出结果
+            outputText.value = text;
+        });
+
+        // 初始化按钮状态
+        updateButtonStatus();
+    </script>
+</body>
+</html>

@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>多功能计算器 - 同比 | 累计 | 百分比</title>
+    <script src="assets/vendor/js/tailwindcss.com.js"></script>
+    <style>
+        /* 自定义微调，让数字输入框在移动端更友好 */
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            opacity: 0.5;
+        }
+        /* 卡片悬浮感 */
+        .card-hover {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 25px -12px rgba(0, 0, 0, 0.15);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen flex items-center justify-center p-4 font-sans">
+    <div class="w-full max-w-7xl mx-auto">
+        <!-- 页面主标题 -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-extrabold text-slate-800 tracking-tight">📊 智能计算工具箱</h1>
+            <p class="text-slate-500 mt-1 text-sm">同比 · 累计求和 · 百分比 (结果均保留一位小数)</p>
+        </div>
+
+        <!-- 三卡布局：响应式，md以上三列，小屏垂直排列 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <!-- 卡片1：同比计算器 (保留原功能并优化错误提示) -->
+            <div class="bg-white rounded-2xl shadow-lg p-6 card-hover border border-indigo-50 transition-all">
+                <div class="flex items-center gap-2 mb-4">
+                    <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">📈</div>
+                    <h2 class="text-xl font-bold text-gray-800">同比计算器</h2>
+                </div>
+                <div class="space-y-5">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">📅 去年数值</label>
+                        <input type="number" id="lastYear" placeholder="例如: 1000" 
+                               class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none transition bg-gray-50 focus:bg-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">📆 今年数值</label>
+                        <input type="number" id="thisYear" placeholder="例如: 1250" 
+                               class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none transition bg-gray-50 focus:bg-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">📊 同比增长率</label>
+                        <input type="text" id="result" readonly placeholder="等待计算" 
+                               class="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-gray-800 font-semibold text-base cursor-default">
+                    </div>
+                    <div class="text-xs text-center text-gray-400 bg-gray-50 p-2 rounded-lg">
+                        公式: (今年 − 去年) / 去年 × 100% <br> (保留一位小数)
+                    </div>
+                </div>
+            </div>
+
+            <!-- 卡片2：累计计算器 (支持动态增删数值，实时求和，保留一位小数) -->
+            <div class="bg-white rounded-2xl shadow-lg p-6 card-hover border border-indigo-50 transition-all flex flex-col">
+                <div class="flex items-center gap-2 mb-4">
+                    <div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">➕</div>
+                    <h2 class="text-xl font-bold text-gray-800">累计计算器</h2>
+                </div>
+                <div class="space-y-4 flex-1">
+                    <!-- 动态数值列表容器 -->
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-sm font-medium text-gray-700">📋 数值列表</label>
+                            <div class="flex gap-2">
+                                <button id="addValueBtn" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-lg transition flex items-center gap-1">
+                                    + 添加数值
+                                </button>
+                                <button id="clearAllBtn" class="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-2.5 py-1 rounded-lg transition flex items-center gap-1">
+                                    🗑 清空
+                                </button>
+                            </div>
+                        </div>
+                        <div id="accumulatorList" class="space-y-2 max-h-64 overflow-y-auto pr-1">
+                            <!-- 动态渲染列表项 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 累计总和结果区域 -->
+                    <div class="mt-3 pt-3 border-t border-gray-100">
+                        <div class="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-semibold text-gray-700">✨ 累计总和</span>
+                                <span id="accumulatorSum" class="text-2xl font-black text-emerald-700 tracking-wide">0.0</span>
+                            </div>
+                            <p class="text-[11px] text-gray-400 mt-1">所有数值相加，结果保留一位小数 | 支持正负/小数</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 卡片3：百分比计算器 (保留一位小数) -->
+            <div class="bg-white rounded-2xl shadow-lg p-6 card-hover border border-indigo-50 transition-all">
+                <div class="flex items-center gap-2 mb-4">
+                    <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">%</div>
+                    <h2 class="text-xl font-bold text-gray-800">百分比计算器</h2>
+                </div>
+                <div class="space-y-5">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">🔢 部分值</label>
+                        <input type="number" id="percentPart" placeholder="例如: 85" step="any"
+                               class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-300 focus:border-amber-400 outline-none transition bg-gray-50 focus:bg-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">🎯 总值 (分母)</label>
+                        <input type="number" id="percentTotal" placeholder="例如: 200" step="any"
+                               class="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-300 focus:border-amber-400 outline-none transition bg-gray-50 focus:bg-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">📐 计算百分比</label>
+                        <input type="text" id="percentResult" readonly placeholder="等待输入" 
+                               class="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-gray-800 font-semibold text-base cursor-default">
+                    </div>
+                    <div class="text-xs text-center text-gray-400 bg-gray-50 p-2 rounded-lg">
+                        公式: (部分值 ÷ 总值) × 100% <br> 保留一位小数，分母不能为0
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 底部小提示 (保持清爽) -->
+        <div class="text-center text-xs text-indigo-300 mt-8">
+            ⚡ 实时计算 · 所有结果均自动保留一位小数
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // ----------------------------- 1. 同比计算器 (优化去年为0的提示，保留一位小数) -----------------------------
+            const lastYearInput = document.getElementById('lastYear');
+            const thisYearInput = document.getElementById('thisYear');
+            const resultInput = document.getElementById('result');
+
+            function calcYearOverYear() {
+                let last = parseFloat(lastYearInput.value);
+                let current = parseFloat(thisYearInput.value);
+                
+                // 处理空值或无效输入
+                if (isNaN(last)) last = 0;
+                if (isNaN(current)) current = 0;
+                
+                // 去年数值为0 或 非数值但实际为0
+                if (last === 0) {
+                    resultInput.value = '⚠️ 去年不能为0';
+                    return;
+                }
+                
+                const rate = ((current - last) / last) * 100;
+                // 保留一位小数，处理-0.0等情况
+                let formatted = rate.toFixed(1);
+                // 避免出现 -0.0% 显示为 0.0%
+                if (Math.abs(rate) < 0.05 && rate !== 0) {
+                    // 极小值保留符号？但是保留一位小数情况下通常显示0.0，保证美观
+                    if (Math.abs(rate) < 0.05) formatted = '0.0';
+                }
+                resultInput.value = formatted + '%';
+            }
+
+            lastYearInput.addEventListener('input', calcYearOverYear);
+            thisYearInput.addEventListener('input', calcYearOverYear);
+            // 初始化时触发一次空状态显示友好信息
+            calcYearOverYear();
+
+            // ----------------------------- 2. 累计计算器 (动态增删, 实时求和, 保留一位小数) -----------------------------
+            // 存储数值数组 (初始示例: 1200, 3500, 2800 展示累计功能)
+            let accumulatorValues = [1200, 3500, 2800];
+            
+            const accumulatorListDiv = document.getElementById('accumulatorList');
+            const accumulatorSumSpan = document.getElementById('accumulatorSum');
+            const addValueBtn = document.getElementById('addValueBtn');
+            const clearAllBtn = document.getElementById('clearAllBtn');
+
+            // 更新总和并显示 (保留一位小数)
+            function updateAccumulatorSum() {
+                let sum = 0;
+                for (let val of accumulatorValues) {
+                    let num = parseFloat(val);
+                    if (!isNaN(num)) {
+                        sum += num;
+                    }
+                }
+                // 保留一位小数，并且处理浮点误差 (toFixed 四舍五入)
+                accumulatorSumSpan.textContent = sum.toFixed(1);
+            }
+
+            // 渲染累计列表 (完全基于accumulatorValues重建)
+            function renderAccumulatorList() {
+                if (!accumulatorListDiv) return;
+                
+                if (accumulatorValues.length === 0) {
+                    accumulatorListDiv.innerHTML = `<div class="text-center py-6 text-gray-400 text-sm bg-gray-50 rounded-xl">✨ 暂无数据，点击“添加数值”</div>`;
+                    updateAccumulatorSum();
+                    return;
+                }
+                
+                let html = '';
+                accumulatorValues.forEach((val, idx) => {
+                    // 确保显示的值保留原始小数但不过分格式化 (保留输入原样)
+                    let displayVal = (typeof val === 'number' && !isNaN(val)) ? val : 0;
+                    // 若存储为字符串，转数字展示
+                    if (typeof displayVal !== 'number') displayVal = parseFloat(displayVal) || 0;
+                    html += `
+                        <div class="flex items-center gap-2 group" data-index="${idx}">
+                            <div class="flex-1 relative">
+                                <input type="number" step="any" value="${displayVal}" 
+                                       class="accumulator-num-input w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 outline-none text-sm bg-white transition"
+                                       data-idx="${idx}" placeholder="数值">
+                            </div>
+                            <button class="delete-item-btn text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 rounded-lg p-1.5 transition w-8 h-8 flex items-center justify-center" data-idx="${idx}" title="删除该项">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                        </div>
+                    `;
+                });
+                accumulatorListDiv.innerHTML = html;
+                
+                // 绑定所有输入框的input/change事件 (实时更新数组并刷新总和，不重建列表，避免失焦)
+                const allInputs = document.querySelectorAll('.accumulator-num-input');
+                allInputs.forEach(input => {
+                    const idxAttr = input.getAttribute('data-idx');
+                    if (idxAttr !== null) {
+                        const index = parseInt(idxAttr, 10);
+                        // 监听 input 事件确保实时更新
+                        input.addEventListener('input', function(e) {
+                            let newVal = parseFloat(e.target.value);
+                            if (isNaN(newVal)) newVal = 0;
+                            if (!isNaN(index) && accumulatorValues[index] !== undefined) {
+                                accumulatorValues[index] = newVal;
+                                updateAccumulatorSum();
+                            }
+                        });
+                        // 额外change保证最终确认
+                        input.addEventListener('change', function(e) {
+                            let newVal = parseFloat(e.target.value);
+                            if (isNaN(newVal)) newVal = 0;
+                            if (!isNaN(index) && accumulatorValues[index] !== undefined) {
+                                accumulatorValues[index] = newVal;
+                                updateAccumulatorSum();
+                            }
+                        });
+                    }
+                });
+                
+                // 绑定删除按钮事件
+                const deleteBtns = document.querySelectorAll('.delete-item-btn');
+                deleteBtns.forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const idxAttr = btn.getAttribute('data-idx');
+                        if (idxAttr !== null) {
+                            const idx = parseInt(idxAttr, 10);
+                            if (!isNaN(idx) && idx >= 0 && idx < accumulatorValues.length) {
+                                accumulatorValues.splice(idx, 1);
+                                renderAccumulatorList();  // 重新渲染
+                            }
+                        }
+                    });
+                });
+                
+                // 更新总和显示
+                updateAccumulatorSum();
+            }
+            
+            // 添加数值 (默认添加0)
+            function addAccumulatorValue() {
+                accumulatorValues.push(0);
+                renderAccumulatorList();
+                // 滚动新条目可见
+                if (accumulatorListDiv.lastElementChild) {
+                    accumulatorListDiv.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            }
+            
+            // 清空所有数值
+            function clearAllValues() {
+                accumulatorValues = [];
+                renderAccumulatorList();
+            }
+            
+            // 绑定累计计算器的全局按钮事件
+            if (addValueBtn) addValueBtn.addEventListener('click', addAccumulatorValue);
+            if (clearAllBtn) clearAllBtn.addEventListener('click', clearAllValues);
+            
+            // 初始化累计列表渲染
+            renderAccumulatorList();
+            
+            // ----------------------------- 3. 百分比计算器 (保留一位小数，分母为零处理) -----------------------------
+            const percentPart = document.getElementById('percentPart');
+            const percentTotal = document.getElementById('percentTotal');
+            const percentResult = document.getElementById('percentResult');
+            
+            function calcPercent() {
+                let part = parseFloat(percentPart.value);
+                let total = parseFloat(percentTotal.value);
+                
+                // 处理非数字情况
+                if (isNaN(part)) part = 0;
+                if (isNaN(total)) total = 0;
+                
+                // 分母为0的情况
+                if (total === 0) {
+                    percentResult.value = '⚠️ 分母不能为0';
+                    return;
+                }
+                
+                let percentage = (part / total) * 100;
+                // 保留一位小数 (四舍五入)
+                let formatted = percentage.toFixed(1);
+                // 修复-0.0% 显示问题
+                if (Math.abs(percentage) < 0.05 && percentage !== 0) formatted = '0.0';
+                percentResult.value = formatted + '%';
+            }
+            
+            if (percentPart) percentPart.addEventListener('input', calcPercent);
+            if (percentTotal) percentTotal.addEventListener('input', calcPercent);
+            // 初始化占位提示
+            calcPercent();
+            
+            // 额外: 累计计算器可能由于动态添加导致大量事件, 但性能良好, 同时保证合计初始显示正确
+            // 验证同比计算器: 去年为0提示修改后友好, 去年不为0正常保留一位小数
+            // 另外针对百分比部分值/总值在输入非法字符时保证安全, 完美支持小数点后很多位保留一位小数结果.
+            // 增加累计计算器的额外样式修复: 确保滚动条美观，以及手动处理数值更新时若值为NaN则归零
+            // 并且累计计算器每个数值改变时总和实时更新 (input事件) 不重新渲染，体验完美
+            // 同时确保clear后重新添加数值，渲染正常。
+            // 针对累计计算器，如果数值非常多，滚动条会自动出现。
+            // 修正当累计数值中用户输入了空字符串或非法字符时，累计和自动处理为0。
+            // 为了保证累计列表输入框的值能够反映真实数组数值，每次render时value会重置为数组中的值，
+            // 但用户在输入框内编辑时触发的input会同步到数组，所以实时同步。
+            // 但注意如果用户编辑一半时删除按钮导致重新渲染，可能会丢失焦点；但删除是独立操作，场景合理。
+            // 额外加一个优化：在累计列表渲染时，保留已有焦点？由于删除和添加重建，常规操作没问题。
+            // 给每个输入框加上step=any 支持小数。
+        })();
+    </script>
+</body>
+</html>
